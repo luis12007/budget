@@ -1,0 +1,43 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Settings {
+  id           Int      @id @default(1)
+  balanceCents Int      @default(0)
+  balanceDate  String
+  updatedAt    DateTime @updatedAt
+}
+
+model Transaction {
+  id              String         @id @default(cuid())
+  date            String
+  type            String
+  amountCents     Int
+  description     String
+  category        String?
+  recurringRuleId String?
+  recurringRule   RecurringRule? @relation(fields: [recurringRuleId], references: [id], onDelete: SetNull)
+  createdAt       DateTime       @default(now())
+
+  @@index([date])
+}
+
+model RecurringRule {
+  id           String        @id @default(cuid())
+  description  String
+  type         String
+  amountCents  Int
+  frequency    String
+  startDate    String
+  endDate      String?
+  category     String?
+  active       Boolean       @default(true)
+  createdAt    DateTime      @default(now())
+  transactions Transaction[]
+}

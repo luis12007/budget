@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+:root {
+  color-scheme: light;
+  --viz-surface: #ffffff;
+  --viz-series-1: #2a78d6;
+  --viz-income: #1baf7a;
+  --viz-expense: #e34948;
+  --viz-good: #0ca30c;
+  --viz-critical: #d03b3b;
+}
+
+.dark {
+  color-scheme: dark;
+  --viz-surface: #18181b;
+  --viz-series-1: #3987e5;
+  --viz-income: #199e70;
+  --viz-expense: #e66767;
+  --viz-good: #0ca30c;
+  --viz-critical: #d03b3b;
+}
+
+html,
+body {
+  height: 100%;
+}
+
+body {
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+}
