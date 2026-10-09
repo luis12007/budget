@@ -9,7 +9,7 @@ import {
   startOfMonth,
   startOfWeek,
 } from "date-fns";
-import { Repeat } from "lucide-react";
+import { Flag, Repeat } from "lucide-react";
 import { categoryEmoji } from "@/lib/categories";
 import { toKey } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
@@ -23,12 +23,14 @@ const MAX_CHIPS = 3;
 export function MonthCalendar({
   cursor,
   today,
+  trackingStart,
   occurrencesByDate,
   balanceByDate,
   onSelectDay,
 }: {
   cursor: Date;
   today: string;
+  trackingStart: string;
   occurrencesByDate: Map<string, Occurrence[]>;
   balanceByDate: Map<string, number>;
   onSelectDay: (dateKey: string) => void;
@@ -59,23 +61,36 @@ export function MonthCalendar({
           const key = toKey(day);
           const inMonth = isSameMonth(day, cursor);
           const isToday = key === today;
+          const untracked = key < trackingStart;
+          const isStart = key === trackingStart;
           const entries = occurrencesByDate.get(key) ?? [];
           const net = entries.reduce((sum, o) => sum + signedAmount(o), 0);
-          const balance = balanceByDate.get(key);
+          const balance = untracked ? undefined : balanceByDate.get(key);
           const hidden = entries.length - MAX_CHIPS;
 
           return (
             <button
               key={key}
               type="button"
+              disabled={untracked}
+              title={untracked ? "Before tracking start" : undefined}
               onClick={() => onSelectDay(key)}
               className={cx(
-                "flex min-h-24 flex-col gap-1 border-zinc-200 p-1.5 text-left transition-colors hover:bg-zinc-50 dark:border-zinc-800 dark:hover:bg-zinc-800/60",
+                "relative flex min-h-24 flex-col gap-1 border-zinc-200 p-1.5 text-left transition-colors dark:border-zinc-800",
                 index % 7 !== 0 && "border-l",
                 index >= 7 && "border-t",
-                !inMonth && "bg-zinc-50/60 text-zinc-400 dark:bg-zinc-950/40 dark:text-zinc-600",
+                untracked
+                  ? "untracked cursor-default text-zinc-400 dark:text-zinc-600"
+                  : "hover:bg-zinc-50 dark:hover:bg-zinc-800/60",
+                !inMonth && !untracked && "bg-zinc-50/60 text-zinc-400 dark:bg-zinc-950/40 dark:text-zinc-600",
               )}
             >
+              {isStart && (
+                <span
+                  className="absolute inset-y-0 left-0 w-0.5 bg-emerald-500"
+                  aria-hidden
+                />
+              )}
               <div className="flex items-center justify-between">
                 <span
                   className={cx(
@@ -85,7 +100,13 @@ export function MonthCalendar({
                 >
                   {getDate(day)}
                 </span>
-                {net !== 0 && <Amount cents={net} type="NET" className="text-[11px]" />}
+                {isStart ? (
+                  <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 uppercase dark:bg-emerald-950/50 dark:text-emerald-300">
+                    <Flag className="size-3" /> Start
+                  </span>
+                ) : (
+                  net !== 0 && <Amount cents={net} type="NET" className="text-[11px]" />
+                )}
               </div>
 
               <div className="flex-1 space-y-0.5 overflow-hidden">

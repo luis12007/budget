@@ -1,16 +1,21 @@
 "use client";
 
 import { format } from "date-fns";
-import { Pencil, Repeat } from "lucide-react";
+import { Flag, Pencil, Repeat } from "lucide-react";
+import { useTransition } from "react";
+import { setVaultCounts } from "@/app/actions";
 import { categoryEmoji } from "@/lib/categories";
 import { fromKey } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
 import type { Summary } from "@/lib/projection";
-import type { Occurrence, Settings } from "@/lib/types";
-import { Amount, Button, Card, cx } from "./ui";
+import type { Occurrence, Settings, Vault } from "@/lib/types";
+import { useHandleResult } from "./ActionFeedback";
+import { Amount, Button, Card, Switch, cx } from "./ui";
 
 export function SidePanel({
   settings,
+  vaults,
+  today,
   todayBalance,
   periodLabel,
   summary,
@@ -18,11 +23,14 @@ export function SidePanel({
   lowest,
   upcoming,
   editMode,
-  onEditBalance,
+  onAdjustVault,
+  onEditTrackingStart,
   onManageRecurring,
   onSelectDay,
 }: {
   settings: Settings;
+  vaults: Vault[];
+  today: string;
   todayBalance: number;
   periodLabel: string;
   summary: Summary;
@@ -30,36 +38,95 @@ export function SidePanel({
   lowest: { date: string; balance: number } | null;
   upcoming: Occurrence[];
   editMode: boolean;
-  onEditBalance: () => void;
+  onAdjustVault: (vault: Vault) => void;
+  onEditTrackingStart: () => void;
   onManageRecurring: () => void;
   onSelectDay: (dateKey: string) => void;
 }) {
+  const [pending, startTransition] = useTransition();
+  const handleResult = useHandleResult();
+  const notCounted = vaults.filter((v) => !v.countsInTotal).reduce((s, v) => s + v.balanceCents, 0);
+  const balanceIsFromToday = settings.balanceDate >= today;
+
   return (
     <aside className="flex flex-col gap-3">
       <Card className="p-4">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="text-xs font-medium text-zinc-500 uppercase dark:text-zinc-400">
-              Balance today
-            </div>
-            <div
-              className={cx(
-                "mt-1 text-3xl font-semibold tabular-nums",
-                todayBalance < 0 && "text-rose-600 dark:text-rose-400",
-              )}
+        <div className="text-xs font-medium text-zinc-500 uppercase dark:text-zinc-400">
+          {balanceIsFromToday ? "Money today" : "Projected today"}
+        </div>
+        <div
+          className={cx(
+            "mt-1 text-3xl font-semibold",
+            todayBalance < 0 && "text-rose-600 dark:text-rose-400",
+          )}
+        >
+          {formatCents(todayBalance)}
+        </div>
+        <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
+          {balanceIsFromToday
+            ? "Sum of the vaults that count. Future income is not included."
+            : `Vaults total ${formatCents(settings.balanceCents)} on ${format(fromKey(settings.balanceDate), "d MMM")}, adjusted by entries since then.`}
+        </div>
+
+        <ul className="mt-4 divide-y divide-zinc-100 dark:divide-zinc-800">
+          {vaults.map((v) => (
+            <li
+              key={v.id}
+              className={cx("flex items-center gap-3 py-2.5", !v.countsInTotal && "opacity-60")}
             >
-              {formatCents(todayBalance)}
-            </div>
-            <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-              Recorded {formatCents(settings.balanceCents)} on{" "}
-              {format(fromKey(settings.balanceDate), "d MMM yyyy")}
-            </div>
+              <span className="w-6 shrink-0 text-center text-lg leading-none" aria-hidden>
+                {v.emoji}
+              </span>
+              <div className="min-w-0 flex-1">
+                <div className="truncate text-sm font-medium">{v.name}</div>
+                <div className="text-[11px] text-zinc-500 dark:text-zinc-400">
+                  {v.countsInTotal ? "Counts in total" : "Not counted"}
+                </div>
+              </div>
+              <span className="text-sm font-semibold tabular-nums">{formatCents(v.balanceCents)}</span>
+              {editMode && (
+                <>
+                  <Switch
+                    checked={v.countsInTotal}
+                    label=""
+                    onChange={(counts) =>
+                      startTransition(async () => handleResult(await setVaultCounts(v.id, counts)))
+                    }
+                  />
+                  <Button
+                    variant="ghost"
+                    className="size-8 px-0"
+                    title={`Adjust ${v.name}`}
+                    disabled={pending}
+                    onClick={() => onAdjustVault(v)}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+
+        {notCounted > 0 && (
+          <div className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+            Not counted: {formatCents(notCounted)}
           </div>
+        )}
+
+        <div className="mt-3 flex items-center justify-between border-t border-zinc-200 pt-3 text-xs text-zinc-500 dark:border-zinc-800 dark:text-zinc-400">
+          <span className="inline-flex items-center gap-1.5">
+            <Flag className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+            Tracking since {format(fromKey(settings.trackingStart), "d MMM yyyy")}
+          </span>
           {editMode && (
-            <Button variant="ghost" onClick={onEditBalance} className="-mt-1 -mr-2">
-              <Pencil className="size-4" />
-              Update
-            </Button>
+            <button
+              type="button"
+              onClick={onEditTrackingStart}
+              className="font-medium text-zinc-700 underline-offset-2 hover:underline dark:text-zinc-300"
+            >
+              Change
+            </button>
           )}
         </div>
       </Card>

@@ -1,8 +1,19 @@
 -- CreateTable
 CREATE TABLE "Settings" (
     "id" INTEGER NOT NULL PRIMARY KEY DEFAULT 1,
-    "balanceCents" INTEGER NOT NULL DEFAULT 0,
     "balanceDate" TEXT NOT NULL,
+    "trackingStart" TEXT NOT NULL DEFAULT '2026-10-01',
+    "updatedAt" DATETIME NOT NULL
+);
+
+-- CreateTable
+CREATE TABLE "Vault" (
+    "id" TEXT NOT NULL PRIMARY KEY,
+    "name" TEXT NOT NULL,
+    "emoji" TEXT NOT NULL,
+    "balanceCents" INTEGER NOT NULL DEFAULT 0,
+    "countsInTotal" BOOLEAN NOT NULL DEFAULT true,
+    "sortOrder" INTEGER NOT NULL,
     "updatedAt" DATETIME NOT NULL
 );
 

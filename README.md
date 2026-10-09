@@ -25,6 +25,8 @@ If `npm` is blocked by PowerShell's execution policy, use `npm.cmd` / `npx.cmd`,
 
 ## Deploying to Railway
 
+Step-by-step guide (in Spanish): [DEPLOY.md](DEPLOY.md). Short version below.
+
 The database is a single SQLite file. On Railway the container filesystem is wiped on every deploy, so the file **must** live on a Volume.
 
 1. Push this repo to GitHub and create a new Railway project from it.

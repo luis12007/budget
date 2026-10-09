@@ -8,10 +8,20 @@ datasource db {
 }
 
 model Settings {
-  id           Int      @id @default(1)
-  balanceCents Int      @default(0)
-  balanceDate  String
-  updatedAt    DateTime @updatedAt
+  id            Int      @id @default(1)
+  balanceDate   String
+  trackingStart String   @default("2026-10-01")
+  updatedAt     DateTime @updatedAt
+}
+
+model Vault {
+  id            String   @id
+  name          String
+  emoji         String
+  balanceCents  Int      @default(0)
+  countsInTotal Boolean  @default(true)
+  sortOrder     Int
+  updatedAt     DateTime @updatedAt
 }
 
 model Transaction {

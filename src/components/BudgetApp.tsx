@@ -19,9 +19,8 @@ import { lockEdit } from "@/app/actions";
 import { monthPrefix, todayKey, toKey } from "@/lib/dates";
 import { balanceAt, groupByDate, summarize } from "@/lib/projection";
 import { buildOccurrences } from "@/lib/recurring";
-import type { ActionResult, RecurringRule, Settings, Transaction } from "@/lib/types";
+import type { ActionResult, RecurringRule, Settings, Transaction, Vault } from "@/lib/types";
 import { ActionResultProvider } from "./ActionFeedback";
-import { BalanceModal } from "./BalanceModal";
 import { DayModal } from "./DayModal";
 import { ForecastView } from "./forecast/ForecastView";
 import { Header, type ViewMode } from "./Header";
@@ -29,16 +28,27 @@ import { MonthCalendar } from "./MonthCalendar";
 import { PasswordModal } from "./PasswordModal";
 import { RecurringModal } from "./RecurringModal";
 import { SidePanel } from "./SidePanel";
+import { TrackingStartModal } from "./TrackingStartModal";
 import { IconButton } from "./ui";
+import { VaultModal } from "./VaultModal";
 import { YearView } from "./YearView";
+
+type ModalState =
+  | { kind: "recurring" }
+  | { kind: "password" }
+  | { kind: "tracking" }
+  | { kind: "vault"; vaultId: string }
+  | null;
 
 export function BudgetApp({
   settings,
+  vaults,
   transactions,
   rules,
   canEdit,
 }: {
   settings: Settings;
+  vaults: Vault[];
   transactions: Transaction[];
   rules: RecurringRule[];
   canEdit: boolean;
@@ -46,7 +56,7 @@ export function BudgetApp({
   const [view, setView] = useState<ViewMode>("month");
   const [cursor, setCursor] = useState(() => startOfMonth(new Date()));
   const [selectedDay, setSelectedDay] = useState<string | null>(null);
-  const [modal, setModal] = useState<"balance" | "recurring" | "password" | null>(null);
+  const [modal, setModal] = useState<ModalState>(null);
   const [editMode, setEditMode] = useState(canEdit);
   const [error, setError] = useState<string | null>(null);
   const [, startTransition] = useTransition();
@@ -64,7 +74,7 @@ export function BudgetApp({
     if (result.locked) {
       setEditMode(false);
       setSelectedDay(null);
-      setModal("password");
+      setModal({ kind: "password" });
     }
     setError(result.error);
   }, []);
@@ -77,7 +87,7 @@ export function BudgetApp({
       } else if (canEdit) {
         setEditMode(true);
       } else {
-        setModal("password");
+        setModal({ kind: "password" });
       }
     },
     [canEdit, startTransition],
@@ -94,13 +104,14 @@ export function BudgetApp({
     const start = view === "year" ? startOfYear(cursor) : startOfWeek(startOfMonth(cursor), { weekStartsOn: 1 });
     const end = view === "year" ? endOfYear(cursor) : endOfWeek(endOfMonth(cursor), { weekStartsOn: 1 });
     const upcomingEnd = toKey(addDays(new Date(), 30));
+    const earliest = [toKey(start), settings.balanceDate, today].sort()[0];
     return {
       start,
       end,
-      from: [toKey(start), settings.balanceDate, today].sort()[0],
+      from: earliest > settings.trackingStart ? earliest : settings.trackingStart,
       to: [toKey(end), settings.balanceDate, upcomingEnd].sort().at(-1)!,
     };
-  }, [view, cursor, settings.balanceDate, today]);
+  }, [view, cursor, settings.balanceDate, settings.trackingStart, today]);
 
   const occurrences = useMemo(
     () => buildOccurrences(transactions, rules, range.from, range.to),
@@ -128,6 +139,7 @@ export function BudgetApp({
     let lowest: { date: string; balance: number } | null = null;
     for (const day of eachDayOfInterval({ start: periodStart, end: periodEnd })) {
       const key = toKey(day);
+      if (key < settings.trackingStart) continue;
       const balance = balanceByDate.get(key) ?? balanceAt(settings, occurrences, key);
       if (!lowest || balance < lowest.balance) lowest = { date: key, balance };
     }
@@ -151,97 +163,105 @@ export function BudgetApp({
     setCursor((c) => (view === "year" ? addYears(c, direction) : addMonths(c, direction)));
 
   const selectedEntries = selectedDay ? (occurrencesByDate.get(selectedDay) ?? []) : [];
+  const activeVault = modal?.kind === "vault" ? vaults.find((v) => v.id === modal.vaultId) : undefined;
 
   return (
     <ActionResultProvider value={handleResult}>
-    <div className="flex min-h-screen flex-col">
-      <Header
-        cursor={cursor}
-        view={view}
-        editMode={editMode}
-        onPrev={() => step(-1)}
-        onNext={() => step(1)}
-        onToday={() => setCursor(startOfMonth(new Date()))}
-        onViewChange={setView}
-        onEditModeChange={handleEditMode}
-      />
+      <div className="flex min-h-screen flex-col">
+        <Header
+          cursor={cursor}
+          view={view}
+          editMode={editMode}
+          onPrev={() => step(-1)}
+          onNext={() => step(1)}
+          onToday={() => setCursor(startOfMonth(new Date()))}
+          onViewChange={setView}
+          onEditModeChange={handleEditMode}
+        />
 
-      {view === "forecast" ? (
-        <main className="flex-1 p-4">
-          <ForecastView settings={settings} transactions={transactions} rules={rules} today={today} />
-        </main>
-      ) : (
-        <main className="flex flex-1 flex-col gap-4 p-4 lg:flex-row">
-          <section className="min-h-[70vh] flex-1 lg:w-[70%]">
-            {view === "month" ? (
-              <MonthCalendar
-                cursor={cursor}
+        {view === "forecast" ? (
+          <main className="flex-1 p-4">
+            <ForecastView settings={settings} transactions={transactions} rules={rules} today={today} />
+          </main>
+        ) : (
+          <main className="flex flex-1 flex-col gap-4 p-4 lg:flex-row">
+            <section className="min-h-[70vh] flex-1 lg:w-[70%]">
+              {view === "month" ? (
+                <MonthCalendar
+                  cursor={cursor}
+                  today={today}
+                  trackingStart={settings.trackingStart}
+                  occurrencesByDate={occurrencesByDate}
+                  balanceByDate={balanceByDate}
+                  onSelectDay={setSelectedDay}
+                />
+              ) : (
+                <YearView
+                  cursor={cursor}
+                  today={today}
+                  settings={settings}
+                  occurrences={occurrences}
+                  onSelectMonth={(month) => {
+                    setCursor(startOfMonth(month));
+                    setView("month");
+                  }}
+                />
+              )}
+            </section>
+
+            <div className="lg:w-[30%] lg:max-w-sm">
+              <SidePanel
+                settings={settings}
+                vaults={vaults}
                 today={today}
-                occurrencesByDate={occurrencesByDate}
-                balanceByDate={balanceByDate}
+                todayBalance={todayBalance}
+                periodLabel={period.label}
+                summary={period.summary}
+                endBalance={period.endBalance}
+                lowest={period.lowest}
+                upcoming={upcoming}
+                editMode={editMode}
+                onAdjustVault={(vault) => setModal({ kind: "vault", vaultId: vault.id })}
+                onEditTrackingStart={() => setModal({ kind: "tracking" })}
+                onManageRecurring={() => setModal({ kind: "recurring" })}
                 onSelectDay={setSelectedDay}
               />
-            ) : (
-              <YearView
-                cursor={cursor}
-                today={today}
-                settings={settings}
-                occurrences={occurrences}
-                onSelectMonth={(month) => {
-                  setCursor(startOfMonth(month));
-                  setView("month");
-                }}
-              />
-            )}
-          </section>
+            </div>
+          </main>
+        )}
 
-          <div className="lg:w-[30%] lg:max-w-sm">
-            <SidePanel
-              settings={settings}
-              todayBalance={todayBalance}
-              periodLabel={period.label}
-              summary={period.summary}
-              endBalance={period.endBalance}
-              lowest={period.lowest}
-              upcoming={upcoming}
-              editMode={editMode}
-              onEditBalance={() => setModal("balance")}
-              onManageRecurring={() => setModal("recurring")}
-              onSelectDay={setSelectedDay}
-            />
+        {selectedDay && (
+          <DayModal
+            dateKey={selectedDay}
+            entries={selectedEntries}
+            balance={balanceByDate.get(selectedDay) ?? balanceAt(settings, occurrences, selectedDay)}
+            editMode={editMode}
+            onClose={() => setSelectedDay(null)}
+          />
+        )}
+        {activeVault && <VaultModal vault={activeVault} onClose={() => setModal(null)} />}
+        {modal?.kind === "tracking" && (
+          <TrackingStartModal trackingStart={settings.trackingStart} onClose={() => setModal(null)} />
+        )}
+        {modal?.kind === "recurring" && (
+          <RecurringModal rules={rules} editMode={editMode} onClose={() => setModal(null)} />
+        )}
+        {modal?.kind === "password" && (
+          <PasswordModal onClose={() => setModal(null)} onUnlocked={handleUnlocked} />
+        )}
+
+        {error && (
+          <div
+            role="alert"
+            className="fixed bottom-4 left-1/2 z-[60] flex max-w-md -translate-x-1/2 items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 py-2 pr-1 pl-4 text-sm text-rose-800 shadow-lg dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200"
+          >
+            <span>{error}</span>
+            <IconButton label="Dismiss" onClick={() => setError(null)} className="size-8">
+              <X className="size-4" />
+            </IconButton>
           </div>
-        </main>
-      )}
-
-      {selectedDay && (
-        <DayModal
-          dateKey={selectedDay}
-          entries={selectedEntries}
-          balance={balanceByDate.get(selectedDay) ?? balanceAt(settings, occurrences, selectedDay)}
-          editMode={editMode}
-          onClose={() => setSelectedDay(null)}
-        />
-      )}
-      {modal === "balance" && <BalanceModal settings={settings} onClose={() => setModal(null)} />}
-      {modal === "recurring" && (
-        <RecurringModal rules={rules} editMode={editMode} onClose={() => setModal(null)} />
-      )}
-      {modal === "password" && (
-        <PasswordModal onClose={() => setModal(null)} onUnlocked={handleUnlocked} />
-      )}
-
-      {error && (
-        <div
-          role="alert"
-          className="fixed bottom-4 left-1/2 z-[60] flex max-w-md -translate-x-1/2 items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 py-2 pr-1 pl-4 text-sm text-rose-800 shadow-lg dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200"
-        >
-          <span>{error}</span>
-          <IconButton label="Dismiss" onClick={() => setError(null)} className="size-8">
-            <X className="size-4" />
-          </IconButton>
-        </div>
-      )}
-    </div>
+        )}
+      </div>
     </ActionResultProvider>
   );
 }

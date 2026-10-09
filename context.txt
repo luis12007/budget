@@ -1,0 +1,21 @@
+hi i will create a budget app
+
+it will be for me and my father, everything will be in english
+
+we will have 2 views, one of those will be only view and another to edit, well it will be on view with boolean then
+
+i'm thinking about the budget per mothn per day and per year so probably we will have something like google calendar in the 70% of the window
+
+and as a side card in the right the overall information and if we click one day we will have a modal with the information of that day,
+
+the day will have expenses and (reintegros or adds), 
+
+i will need to track my current money, recurent payments, i will need to know at that day with the expected money i will have taking in count the expenses of the last days and the current ammount
+
+create a first iteration of it and then we can fine tune it
+
+first we will start locally and then we will push it to railway to make it accessible
+
+make sure we are using a good interface with white or black options
+
+use good practices and lets start i think we can do a web app

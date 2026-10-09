@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { checkPassword, grantEdit, LockedError, requireEdit, revokeEdit } from "@/lib/auth";
 import { getCategory } from "@/lib/categories";
-import { isDateKey } from "@/lib/dates";
+import { isDateKey, todayKey } from "@/lib/dates";
 import { prisma } from "@/lib/prisma";
 import type { ActionResult, EntryType, Frequency } from "@/lib/types";
 
@@ -118,16 +118,55 @@ export async function confirmRecurring(ruleId: string, date: string) {
   });
 }
 
-export async function updateBalance(formData: FormData) {
+// Any vault change means "this is the real money as of today", so projections restart from here.
+function markBalanceAsOfToday() {
+  const today = todayKey();
+  return prisma.settings.upsert({
+    where: { id: 1 },
+    update: { balanceDate: today },
+    create: { id: 1, balanceDate: today },
+  });
+}
+
+export async function adjustVault(formData: FormData) {
   return guarded(async () => {
-    const data = {
-      balanceCents: parseCents(formData.get("balance"), { allowNegative: true }),
-      balanceDate: parseDate(formData.get("balanceDate")),
-    };
+    const id = String(formData.get("id") ?? "");
+    const vault = await prisma.vault.findUnique({ where: { id } });
+    if (!vault) throw new Error("Vault not found");
+
+    const amount = parseCents(formData.get("amount"));
+    const mode = formData.get("mode");
+    let balanceCents: number;
+    if (mode === "add") balanceCents = vault.balanceCents + amount;
+    else if (mode === "remove") balanceCents = vault.balanceCents - amount;
+    else if (mode === "set") balanceCents = amount;
+    else throw new Error("Invalid operation");
+
+    if (balanceCents < 0) throw new Error(`Not enough money in ${vault.name}`);
+
+    await prisma.$transaction([
+      prisma.vault.update({ where: { id }, data: { balanceCents } }),
+      markBalanceAsOfToday(),
+    ]);
+  });
+}
+
+export async function setVaultCounts(id: string, countsInTotal: boolean) {
+  return guarded(async () => {
+    await prisma.$transaction([
+      prisma.vault.update({ where: { id }, data: { countsInTotal } }),
+      markBalanceAsOfToday(),
+    ]);
+  });
+}
+
+export async function updateTrackingStart(formData: FormData) {
+  return guarded(async () => {
+    const trackingStart = parseDate(formData.get("trackingStart"));
     await prisma.settings.upsert({
       where: { id: 1 },
-      update: data,
-      create: { id: 1, ...data },
+      update: { trackingStart },
+      create: { id: 1, balanceDate: todayKey(), trackingStart },
     });
   });
 }

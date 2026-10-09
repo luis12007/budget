@@ -23,9 +23,19 @@ export interface RecurringRule {
   active: boolean;
 }
 
+export interface Vault {
+  id: string;
+  name: string;
+  emoji: string;
+  balanceCents: number;
+  countsInTotal: boolean;
+}
+
 export interface Settings {
+  // Sum of vaults that count toward the total, valid as of end of balanceDate.
   balanceCents: number;
   balanceDate: string;
+  trackingStart: string;
 }
 
 export interface Occurrence {
