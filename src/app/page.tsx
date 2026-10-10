@@ -15,6 +15,7 @@ export default async function Page() {
       cards={data.cards}
       transactions={data.transactions}
       rules={data.rules}
+      highlights={data.highlights}
     />
   );
 }

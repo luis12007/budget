@@ -23,6 +23,7 @@ export function Header({
   onViewChange,
   onEditModeChange,
   filterMenu,
+  actions,
 }: {
   cursor: Date;
   view: ViewMode;
@@ -33,6 +34,7 @@ export function Header({
   onViewChange: (view: ViewMode) => void;
   onEditModeChange: (enabled: boolean) => void;
   filterMenu?: React.ReactNode;
+  actions?: React.ReactNode;
 }) {
   return (
     <header className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
@@ -59,6 +61,7 @@ export function Header({
       )}
 
       <div className="ml-auto flex items-center gap-4">
+        {actions}
         {filterMenu}
         <div role="tablist" className="inline-flex rounded-lg border border-zinc-300 p-0.5 dark:border-zinc-700">
           {VIEWS.map((v) => (

@@ -77,4 +77,12 @@ export interface Occurrence {
   recurringRuleId?: string;
 }
 
+export interface Highlight {
+  id: string;
+  date: string;
+  description: string;
+  transactionId: string | null;
+  recurringRuleId: string | null;
+}
+
 export type ActionResult = { ok: true } | { ok: false; error: string; locked?: boolean };

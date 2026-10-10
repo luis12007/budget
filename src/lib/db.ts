@@ -1,6 +1,6 @@
 import { todayKey } from "./dates";
 import { prisma } from "./prisma";
-import type { CreditCard, RecurringRule, Settings, Transaction, Vault } from "./types";
+import type { CreditCard, Highlight, RecurringRule, Settings, Transaction, Vault } from "./types";
 
 const DEFAULT_VAULTS = [
   { id: "blocked", name: "Blocked account", emoji: "🔒", sortOrder: 0 },
@@ -35,6 +35,15 @@ export async function loadData() {
     prisma.transaction.findMany({ orderBy: { date: "asc" } }),
     prisma.recurringRule.findMany({ orderBy: { createdAt: "asc" } }),
   ]);
+
+  const highlightRows = await prisma.highlight.findMany({ orderBy: { date: "asc" } });
+  const highlights: Highlight[] = highlightRows.map((h) => ({
+    id: h.id,
+    date: h.date,
+    description: h.description,
+    transactionId: h.transactionId,
+    recurringRuleId: h.recurringRuleId,
+  }));
 
   const vaults: Vault[] = vaultRows.map((v) => ({
     id: v.id,
@@ -85,5 +94,5 @@ export async function loadData() {
     active: r.active,
   }));
 
-  return { settings, vaults, cards, transactions, rules };
+  return { settings, vaults, cards, transactions, rules, highlights };
 }

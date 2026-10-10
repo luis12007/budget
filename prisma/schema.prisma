@@ -60,6 +60,18 @@ model Transaction {
   @@index([cardId])
 }
 
+// Notes pinned to a date on the forecast. The linked entry is kept by id and may be removed later.
+model Highlight {
+  id              String   @id @default(cuid())
+  date            String
+  description     String
+  transactionId   String?
+  recurringRuleId String?
+  createdAt       DateTime @default(now())
+
+  @@index([date])
+}
+
 model RecurringRule {
   id           String        @id @default(cuid())
   description  String

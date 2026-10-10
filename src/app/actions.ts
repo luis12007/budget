@@ -267,6 +267,38 @@ export async function setCardCutoff(formData: FormData) {
   });
 }
 
+// Adds a note to the forecast. `link` is "t:<transactionId>", "r:<ruleId>" or empty.
+export async function addHighlight(formData: FormData) {
+  return guarded(async () => {
+    const date = parseDate(formData.get("date"));
+    const description = String(formData.get("description") ?? "").trim().slice(0, 300);
+    if (!description) throw new Error("Write a description for the highlight");
+
+    const link = String(formData.get("link") ?? "");
+    let transactionId: string | null = null;
+    let recurringRuleId: string | null = null;
+    if (link.startsWith("t:")) {
+      transactionId = link.slice(2);
+      if (!(await prisma.transaction.findUnique({ where: { id: transactionId } }))) {
+        throw new Error("Linked entry not found");
+      }
+    } else if (link.startsWith("r:")) {
+      recurringRuleId = link.slice(2);
+      if (!(await prisma.recurringRule.findUnique({ where: { id: recurringRuleId } }))) {
+        throw new Error("Linked recurring rule not found");
+      }
+    }
+
+    await prisma.highlight.create({ data: { date, description, transactionId, recurringRuleId } });
+  });
+}
+
+export async function deleteHighlight(id: string) {
+  return guarded(async () => {
+    await prisma.highlight.delete({ where: { id } });
+  });
+}
+
 export async function deleteTransaction(id: string) {
   return guarded(async () => {
     await prisma.transaction.delete({ where: { id } });

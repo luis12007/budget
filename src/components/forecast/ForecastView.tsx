@@ -6,10 +6,11 @@ import { useMemo, useState } from "react";
 import { fromKey, toKey } from "@/lib/dates";
 import { buildForecast, type Granularity } from "@/lib/forecast";
 import { formatCents, formatSignedCents } from "@/lib/money";
-import type { RecurringRule, Settings, Transaction, Vault } from "@/lib/types";
+import type { Highlight, RecurringRule, Settings, Transaction, Vault } from "@/lib/types";
 import { Card, cx } from "../ui";
 import { BalanceChart } from "./BalanceChart";
 import { FlowChart } from "./FlowChart";
+import { Highlights } from "./Highlights";
 
 const HORIZONS = [
   { label: "1 month", months: 1 },
@@ -26,12 +27,16 @@ export function ForecastView({
   transactions,
   rules,
   today,
+  highlights,
+  editMode,
 }: {
   settings: Settings;
   vaults: Vault[];
   transactions: Transaction[];
   rules: RecurringRule[];
   today: string;
+  highlights: Highlight[];
+  editMode: boolean;
 }) {
   const [months, setMonths] = useState<number>(12);
   const [granularity, setGranularity] = useState<Granularity>("month");
@@ -156,6 +161,13 @@ export function ForecastView({
           </table>
         </Card>
       )}
+
+      <Highlights
+        highlights={highlights}
+        transactions={transactions}
+        rules={rules}
+        editMode={editMode}
+      />
     </div>
   );
 }

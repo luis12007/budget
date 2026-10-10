@@ -13,7 +13,7 @@ import {
   startOfWeek,
   startOfYear,
 } from "date-fns";
-import { X } from "lucide-react";
+import { Download, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { lockEdit } from "@/app/actions";
 import { filterLegend } from "@/lib/categories";
@@ -23,6 +23,7 @@ import { buildOccurrences } from "@/lib/recurring";
 import type {
   ActionResult,
   CreditCard,
+  Highlight,
   Occurrence,
   RecurringRule,
   Settings,
@@ -41,7 +42,8 @@ import { PasswordModal } from "./PasswordModal";
 import { RecurringModal } from "./RecurringModal";
 import { SidePanel } from "./SidePanel";
 import { TrackingStartModal } from "./TrackingStartModal";
-import { IconButton } from "./ui";
+import { Button, IconButton } from "./ui";
+import { ExportModal } from "./ExportModal";
 import { VaultModal } from "./VaultModal";
 import { YearView } from "./YearView";
 
@@ -59,9 +61,11 @@ export function BudgetApp({
   cards,
   transactions,
   rules,
+  highlights,
   canEdit,
 }: {
   settings: Settings;
+  highlights: Highlight[];
   vaults: Vault[];
   cards: CreditCard[];
   transactions: Transaction[];
@@ -74,6 +78,7 @@ export function BudgetApp({
   const [modal, setModal] = useState<ModalState>(null);
   const [editMode, setEditMode] = useState(canEdit);
   const [error, setError] = useState<string | null>(null);
+  const [exportOpen, setExportOpen] = useState(false);
   // Entry being edited. Kept apart from `modal` so the editor can open on top of the day or card view.
   const [editing, setEditing] = useState<{ kind: "transaction" | "rule"; id: string } | null>(null);
   const editingTransaction =
@@ -243,6 +248,14 @@ export function BudgetApp({
           onToday={() => setCursor(startOfMonth(new Date()))}
           onViewChange={setView}
           onEditModeChange={handleEditMode}
+          actions={
+            editMode ? (
+              <Button onClick={() => setExportOpen(true)}>
+                <Download className="size-4" />
+                Export
+              </Button>
+            ) : undefined
+          }
           filterMenu={
             view === "month" ? (
               <CategoryFilter hidden={hiddenKeys} onToggle={toggleKey} onSetAll={setAllHidden} />
@@ -258,6 +271,8 @@ export function BudgetApp({
               transactions={transactions}
               rules={rules}
               today={today}
+              highlights={highlights}
+              editMode={editMode}
             />
           </main>
         ) : (
@@ -344,6 +359,7 @@ export function BudgetApp({
             onEditTransaction={(id) => setEditing({ kind: "transaction", id })}
           />
         )}
+        {exportOpen && <ExportModal onClose={() => setExportOpen(false)} />}
         {editTarget && (
           <EntryEditModal
             target={editTarget}
