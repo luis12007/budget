@@ -76,11 +76,13 @@ async function requireCard(id: string) {
 }
 
 // Everything owed on a card, including scheduled charges, so the limit check is conservative.
-async function cardOwedTotal(cardId: string): Promise<number> {
-  const rows = await prisma.transaction.findMany({
-    where: { cardId },
-    select: { cardId: true, date: true, kind: true, type: true, amountCents: true },
-  });
+async function cardOwedTotal(cardId: string, excludeId?: string): Promise<number> {
+  const rows = (
+    await prisma.transaction.findMany({
+      where: { cardId },
+      select: { id: true, cardId: true, date: true, kind: true, type: true, amountCents: true },
+    })
+  ).filter((r) => r.id !== excludeId);
   return cardOwedAt(
     cardId,
     rows.map((r) => ({ ...r, kind: r.kind as "ENTRY" | "CARD_PAYMENT", type: r.type as EntryType })),
@@ -88,9 +90,9 @@ async function cardOwedTotal(cardId: string): Promise<number> {
   );
 }
 
-async function assertWithinLimit(cardId: string, amountCents: number) {
+async function assertWithinLimit(cardId: string, amountCents: number, excludeId?: string) {
   const card = await requireCard(cardId);
-  const available = card.limitCents - (await cardOwedTotal(cardId));
+  const available = card.limitCents - (await cardOwedTotal(cardId, excludeId));
   if (amountCents > available) {
     throw new Error(
       `${card.name} only has ${formatCents(Math.max(0, available))} available of its ${formatCents(card.limitCents)} limit`,
@@ -168,6 +170,100 @@ export async function addCardPayment(formData: FormData) {
         cardId: card.id,
       },
     });
+  });
+}
+
+// Edits a one-off entry or a card payment. Card payments keep their card and only change the source vault.
+export async function updateTransaction(formData: FormData) {
+  return guarded(async () => {
+    const id = String(formData.get("id") ?? "");
+    const existing = await prisma.transaction.findUnique({ where: { id } });
+    if (!existing) throw new Error("Entry not found");
+    const date = parseDate(formData.get("date"));
+    const amountCents = parseCents(formData.get("amount"));
+
+    if (existing.kind === "CARD_PAYMENT") {
+      const card = existing.cardId ? await requireCard(existing.cardId) : null;
+      if (!card) throw new Error("Credit card not found");
+      const account = await parseAccount(formData.get("account"), "EXPENSE");
+      if (account.cardId) throw new Error("A card payment must come from a vault");
+      await prisma.transaction.update({
+        where: { id },
+        data: {
+          date,
+          amountCents,
+          description: parseDescription(formData.get("description"), `Payment · ${card.name}`),
+          vaultId: account.vaultId,
+        },
+      });
+      return;
+    }
+
+    const type = parseType(formData.get("type"));
+    const category = parseCategory(formData.get("category"), type);
+    const account = await parseAccount(formData.get("account"), type);
+    if (account.cardId) await assertWithinLimit(account.cardId, amountCents, id);
+
+    await prisma.transaction.update({
+      where: { id },
+      data: {
+        date,
+        type,
+        amountCents,
+        description: parseDescription(formData.get("description"), category.label),
+        category: category.id,
+        vaultId: account.vaultId,
+        cardId: account.cardId,
+      },
+    });
+  });
+}
+
+// Edits a recurring rule. Future occurrences change; entries already confirmed keep their values.
+export async function updateRecurringRule(formData: FormData) {
+  return guarded(async () => {
+    const id = String(formData.get("id") ?? "");
+    const existing = await prisma.recurringRule.findUnique({ where: { id } });
+    if (!existing) throw new Error("Recurring rule not found");
+
+    const type = parseType(formData.get("type"));
+    const category = parseCategory(formData.get("category"), type);
+    const startDate = parseDate(formData.get("startDate"));
+    const endDate = parseOptionalDate(formData.get("endDate"));
+    if (endDate && endDate < startDate) throw new Error("End date must be after start date");
+    const account = await parseAccount(formData.get("account"), type);
+
+    await prisma.recurringRule.update({
+      where: { id },
+      data: {
+        description: parseDescription(formData.get("description"), category.label),
+        type,
+        amountCents: parseCents(formData.get("amount")),
+        frequency: parseFrequency(formData.get("frequency")),
+        startDate,
+        endDate,
+        category: category.id,
+        vaultId: account.vaultId,
+        cardId: account.cardId,
+      },
+    });
+  });
+}
+
+// Sets the statement cut-off day (1-31). An empty value clears it.
+export async function setCardCutoff(formData: FormData) {
+  return guarded(async () => {
+    const card = await requireCard(String(formData.get("cardId") ?? ""));
+    const raw = String(formData.get("day") ?? "").trim();
+    let cutoffDay: number | null = null;
+    if (raw) {
+      const day = Number.parseInt(raw, 10);
+      if (!Number.isInteger(day) || day < 1 || day > 31) {
+        throw new Error("Cut-off day must be between 1 and 31");
+      }
+      cutoffDay = day;
+    }
+    await prisma.creditCard.update({ where: { id: card.id }, data: { cutoffDay } });
   });
 }
 

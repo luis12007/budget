@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { Check, Repeat, Trash2 } from "lucide-react";
+import { Check, Pencil, Repeat, Trash2 } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 import { addTransaction, confirmRecurring, deleteTransaction } from "@/app/actions";
 import { categoriesFor, entryEmoji, getCategory } from "@/lib/categories";
@@ -22,6 +22,7 @@ export function DayModal({
   cards,
   editMode,
   onClose,
+  onEdit,
 }: {
   dateKey: string;
   entries: Occurrence[];
@@ -30,6 +31,8 @@ export function DayModal({
   cards: CreditCard[];
   editMode: boolean;
   onClose: () => void;
+  // Opens the editor for an entry, or for its recurring rule when it is only expected.
+  onEdit: (o: Occurrence) => void;
 }) {
   const [pending, startTransition] = useTransition();
   const handleResult = useHandleResult();
@@ -108,6 +111,17 @@ export function DayModal({
                 type={o.type}
                 className={cx("font-medium", !o.affectsTotal && "opacity-70")}
               />
+              {editMode && (o.transactionId || o.recurringRuleId) && (
+                <Button
+                  variant="ghost"
+                  className="size-8 px-0"
+                  disabled={pending}
+                  title="Edit"
+                  onClick={() => onEdit(o)}
+                >
+                  <Pencil className="size-4" />
+                </Button>
+              )}
               {editMode && o.source === "recurring" && o.recurringRuleId && (
                 <Button
                   variant="ghost"

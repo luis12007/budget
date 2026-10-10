@@ -49,6 +49,7 @@ export async function loadData() {
     name: c.name,
     emoji: c.emoji,
     limitCents: c.limitCents,
+    cutoffDay: c.cutoffDay,
   }));
 
   const settings: Settings = {

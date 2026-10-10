@@ -12,6 +12,7 @@ import {
   startOfYear,
 } from "date-fns";
 import { fromKey, toKey } from "./dates";
+import { OPENING } from "./opening";
 import type { Occurrence, RecurringRule, Transaction, TransactionKind, Vault } from "./types";
 
 function clampToMonth(monthStart: Date, day: number): string {
@@ -89,6 +90,8 @@ export function buildOccurrences(
   vaults: Vault[],
 ): Occurrence[] {
   const counted = new Set(vaults.filter((v) => v.countsInTotal).map((v) => v.id));
+  // Always start at the opening date so the running total is complete.
+  const start = from < OPENING.date ? from : OPENING.date;
   const materialized = new Set(
     transactions
       .filter((t) => t.recurringRuleId)
@@ -98,7 +101,7 @@ export function buildOccurrences(
   const occurrences: Occurrence[] = [];
 
   for (const t of transactions) {
-    if (t.date < from || t.date > to) continue;
+    if (t.date < start || t.date > to) continue;
     occurrences.push({
       key: `t:${t.id}`,
       date: t.date,
@@ -119,7 +122,7 @@ export function buildOccurrences(
   for (const rule of rules) {
     if (!rule.active) continue;
     const entry = { kind: "ENTRY" as const, vaultId: rule.vaultId, cardId: rule.cardId };
-    for (const date of expandRule(rule, from, to)) {
+    for (const date of expandRule(rule, start, to)) {
       if (materialized.has(`${rule.id}:${date}`)) continue;
       occurrences.push({
         key: `r:${rule.id}:${date}`,
@@ -136,6 +139,22 @@ export function buildOccurrences(
         recurringRuleId: rule.id,
       });
     }
+  }
+
+  if (OPENING.date >= start && OPENING.date <= to) {
+    occurrences.push({
+      key: "fixed:opening",
+      date: OPENING.date,
+      type: "INCOME",
+      kind: "ENTRY",
+      amountCents: OPENING.amountCents,
+      description: OPENING.description,
+      category: OPENING.category,
+      vaultId: null,
+      cardId: null,
+      affectsTotal: true,
+      source: "transaction",
+    });
   }
 
   occurrences.sort((a, b) => a.date.localeCompare(b.date));

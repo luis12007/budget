@@ -55,14 +55,13 @@ export function SidePanel({
   const handleResult = useHandleResult();
   const balanceOf = (v: Vault) => vaultBalances.get(v.id) ?? v.balanceCents;
   const notCounted = vaults.filter((v) => !v.countsInTotal).reduce((s, v) => s + balanceOf(v), 0);
-  const balanceIsFromToday = settings.balanceDate >= today;
   const totalOwed = cards.reduce((s, c) => s + (cardOwed.get(c.id) ?? 0), 0);
 
   return (
     <aside className="flex flex-col gap-3">
       <Card className="p-4">
         <div className="text-xs font-medium text-zinc-500 uppercase dark:text-zinc-400">
-          {balanceIsFromToday ? "Money today" : "Projected today"}
+          Money today
         </div>
         <div
           className={cx(
@@ -73,9 +72,8 @@ export function SidePanel({
           {formatCents(todayBalance)}
         </div>
         <div className="mt-1 text-xs text-zinc-500 dark:text-zinc-400">
-          {balanceIsFromToday
-            ? "Sum of the vaults that count. Future income is not included."
-            : `Vaults total ${formatCents(settings.balanceCents)} on ${format(fromKey(settings.balanceDate), "d MMM")}, adjusted by entries since then.`}
+          Starts with the opening amount on 1 Oct, plus entries since then. Vault balances are for
+          tracking only.
         </div>
 
         <ul className="mt-4 divide-y divide-zinc-100 dark:divide-zinc-800">
@@ -146,81 +144,6 @@ export function SidePanel({
             </button>
           )}
         </div>
-      </Card>
-
-      <Card className="p-4">
-        <div className="mb-1 flex items-center justify-between">
-          <div className="text-xs font-medium text-zinc-500 uppercase dark:text-zinc-400">
-            Credit cards
-          </div>
-          <div
-            className={cx(
-              "text-xs tabular-nums",
-              totalOwed > 0
-                ? "font-medium text-rose-600 dark:text-rose-400"
-                : "text-zinc-500 dark:text-zinc-400",
-            )}
-          >
-            {totalOwed > 0 ? `Owed ${formatCents(totalOwed)}` : "All paid"}
-          </div>
-        </div>
-        <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
-          {cards.map((card) => {
-            const owed = cardOwed.get(card.id) ?? 0;
-            const available = card.limitCents - owed;
-            const usage = card.limitCents > 0 ? Math.min(1, Math.max(0, owed / card.limitCents)) : 0;
-            return (
-              <li key={card.id}>
-                <button
-                  type="button"
-                  onClick={() => onOpenCard(card)}
-                  className="-mx-2 flex w-[calc(100%+1rem)] flex-col gap-1.5 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
-                  title={`${card.name}: charges, payments and history`}
-                >
-                  <div className="flex items-center gap-3">
-                    <span className="w-6 shrink-0 text-center text-lg leading-none" aria-hidden>
-                      {card.emoji}
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <div className="truncate text-sm font-medium">{card.name}</div>
-                      <div className="text-[11px] text-zinc-500 tabular-nums dark:text-zinc-400">
-                        {formatCents(available)} available of {formatCents(card.limitCents)}
-                      </div>
-                    </div>
-                    <span
-                      className={cx(
-                        "text-sm font-semibold tabular-nums",
-                        owed > 0 ? "text-rose-600 dark:text-rose-400" : "text-zinc-500 dark:text-zinc-400",
-                      )}
-                    >
-                      {owed > 0 ? formatCents(owed) : "Paid"}
-                    </span>
-                    <ChevronRight className="size-4 shrink-0 text-zinc-400" />
-                  </div>
-                  <div
-                    className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800"
-                    role="meter"
-                    aria-valuemin={0}
-                    aria-valuemax={card.limitCents}
-                    aria-valuenow={owed}
-                    aria-label={`${card.name} used`}
-                  >
-                    <div
-                      className={cx(
-                        "h-full rounded-full transition-[width]",
-                        usage >= 0.8 ? "bg-rose-500" : "bg-zinc-400 dark:bg-zinc-500",
-                      )}
-                      style={{ width: `${usage * 100}%` }}
-                    />
-                  </div>
-                </button>
-              </li>
-            );
-          })}
-        </ul>
-        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
-          Charges don&apos;t reduce your money until you pay the card.
-        </p>
       </Card>
 
       <Card className="p-4">
@@ -302,6 +225,83 @@ export function SidePanel({
             ))}
           </ul>
         )}
+      </Card>
+
+      <Card className="p-4">
+        <div className="mb-1 flex items-center justify-between">
+          <div className="text-xs font-medium text-zinc-500 uppercase dark:text-zinc-400">
+            Credit cards
+          </div>
+          <div
+            className={cx(
+              "text-xs tabular-nums",
+              totalOwed > 0
+                ? "font-medium text-rose-600 dark:text-rose-400"
+                : "text-zinc-500 dark:text-zinc-400",
+            )}
+          >
+            {totalOwed > 0 ? `Owed ${formatCents(totalOwed)}` : "All paid"}
+          </div>
+        </div>
+        <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+          {cards.map((card) => {
+            const owed = cardOwed.get(card.id) ?? 0;
+            const available = card.limitCents - owed;
+            const availablePct =
+              card.limitCents > 0 ? Math.min(1, Math.max(0, available / card.limitCents)) : 0;
+            return (
+              <li key={card.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpenCard(card)}
+                  className="-mx-2 flex w-[calc(100%+1rem)] flex-col gap-1.5 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+                  title={`${card.name}: charges, payments and history`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="w-6 shrink-0 text-center text-lg leading-none" aria-hidden>
+                      {card.emoji}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{card.name}</div>
+                      <div className="text-[11px] text-zinc-500 tabular-nums dark:text-zinc-400">
+                        {formatCents(available)} available of {formatCents(card.limitCents)}
+                        {card.cutoffDay ? ` · cut-off day ${card.cutoffDay}` : ""}
+                      </div>
+                    </div>
+                    <span
+                      className={cx(
+                        "text-sm font-semibold tabular-nums",
+                        owed > 0 ? "text-rose-600 dark:text-rose-400" : "text-zinc-500 dark:text-zinc-400",
+                      )}
+                    >
+                      {owed > 0 ? formatCents(owed) : "Paid"}
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 text-zinc-400" />
+                  </div>
+                  <div
+                    className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800"
+                    role="meter"
+                    aria-valuemin={0}
+                    aria-valuemax={card.limitCents}
+                    aria-valuenow={Math.max(0, available)}
+                    aria-label={`${card.name} available credit`}
+                  >
+                    <div
+                      className={cx(
+                        "h-full rounded-full transition-[width]",
+                        availablePct <= 0.2 ? "bg-rose-500" : "bg-emerald-500",
+                      )}
+                      style={{ width: `${availablePct * 100}%` }}
+                    />
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          Charges don&apos;t reduce your money until you pay the card.
+        </p>
       </Card>
     </aside>
   );

@@ -48,6 +48,8 @@ export interface CreditCard {
   name: string;
   emoji: string;
   limitCents: number;
+  // Day of the month the statement closes (1-31). null = not set.
+  cutoffDay: number | null;
 }
 
 export interface Settings {

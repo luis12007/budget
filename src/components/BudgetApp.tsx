@@ -16,12 +16,14 @@ import {
 import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { lockEdit } from "@/app/actions";
+import { filterLegend } from "@/lib/categories";
 import { monthPrefix, todayKey, toKey } from "@/lib/dates";
 import { balanceAt, cardOwedAt, groupByDate, summarize, vaultBalancesAt } from "@/lib/projection";
 import { buildOccurrences } from "@/lib/recurring";
 import type {
   ActionResult,
   CreditCard,
+  Occurrence,
   RecurringRule,
   Settings,
   Transaction,
@@ -29,6 +31,8 @@ import type {
 } from "@/lib/types";
 import { ActionResultProvider } from "./ActionFeedback";
 import { CardModal } from "./CardModal";
+import { CategoryFilter } from "./CategoryFilter";
+import { EntryEditModal, type EditTarget } from "./EntryEditModal";
 import { DayModal } from "./DayModal";
 import { ForecastView } from "./forecast/ForecastView";
 import { Header, type ViewMode } from "./Header";
@@ -70,7 +74,38 @@ export function BudgetApp({
   const [modal, setModal] = useState<ModalState>(null);
   const [editMode, setEditMode] = useState(canEdit);
   const [error, setError] = useState<string | null>(null);
+  // Entry being edited. Kept apart from `modal` so the editor can open on top of the day or card view.
+  const [editing, setEditing] = useState<{ kind: "transaction" | "rule"; id: string } | null>(null);
+  const editingTransaction =
+    editing?.kind === "transaction" ? transactions.find((t) => t.id === editing.id) : undefined;
+  const editingRule = editing?.kind === "rule" ? rules.find((r) => r.id === editing.id) : undefined;
+  const editTarget: EditTarget | null = editingTransaction
+    ? { kind: "transaction", transaction: editingTransaction }
+    : editingRule
+      ? { kind: "rule", rule: editingRule }
+      : null;
+
+  const editOccurrence = (o: Occurrence) => {
+    if (o.source === "transaction" && o.transactionId) setEditing({ kind: "transaction", id: o.transactionId });
+    else if (o.recurringRuleId) setEditing({ kind: "rule", id: o.recurringRuleId });
+  };
+
+  // Calendar filter: categories whose entries are hidden on the calendar. Visual only.
+  const [hiddenKeys, setHiddenKeys] = useState<Set<string>>(() => new Set());
   const [, startTransition] = useTransition();
+
+  const toggleKey = useCallback((key: string) => {
+    setHiddenKeys((prev) => {
+      const next = new Set(prev);
+      if (next.has(key)) next.delete(key);
+      else next.add(key);
+      return next;
+    });
+  }, []);
+
+  const setAllHidden = useCallback((hide: boolean) => {
+    setHiddenKeys(hide ? new Set(filterLegend().map((item) => item.key)) : new Set());
+  }, []);
 
   useEffect(() => setEditMode(canEdit), [canEdit]);
 
@@ -208,6 +243,11 @@ export function BudgetApp({
           onToday={() => setCursor(startOfMonth(new Date()))}
           onViewChange={setView}
           onEditModeChange={handleEditMode}
+          filterMenu={
+            view === "month" ? (
+              <CategoryFilter hidden={hiddenKeys} onToggle={toggleKey} onSetAll={setAllHidden} />
+            ) : undefined
+          }
         />
 
         {view === "forecast" ? (
@@ -230,6 +270,7 @@ export function BudgetApp({
                   trackingStart={settings.trackingStart}
                   occurrencesByDate={occurrencesByDate}
                   balanceByDate={balanceByDate}
+                  hiddenKeys={hiddenKeys}
                   onSelectDay={setSelectedDay}
                 />
               ) : (
@@ -280,6 +321,7 @@ export function BudgetApp({
             cards={cards}
             editMode={editMode}
             onClose={() => setSelectedDay(null)}
+            onEdit={editOccurrence}
           />
         )}
         {activeVault && (
@@ -299,6 +341,15 @@ export function BudgetApp({
             editMode={editMode}
             today={today}
             onClose={() => setModal(null)}
+            onEditTransaction={(id) => setEditing({ kind: "transaction", id })}
+          />
+        )}
+        {editTarget && (
+          <EntryEditModal
+            target={editTarget}
+            vaults={vaults}
+            cards={cards}
+            onClose={() => setEditing(null)}
           />
         )}
         {modal?.kind === "tracking" && (
@@ -311,6 +362,7 @@ export function BudgetApp({
             cards={cards}
             editMode={editMode}
             onClose={() => setModal(null)}
+            onEditRule={(id) => setEditing({ kind: "rule", id })}
           />
         )}
         {modal?.kind === "password" && (

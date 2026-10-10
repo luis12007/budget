@@ -36,6 +36,32 @@ export function categoryEmoji(id: string | null | undefined, type: EntryType): s
   return getCategory(id)?.emoji ?? (type === "INCOME" ? "💰" : "💸");
 }
 
+export const CARD_PAYMENT_FILTER = "card_payment";
+
+// Key used to show or hide calendar entries from the filter menu.
+export function entryFilterKey(entry: {
+  kind: TransactionKind;
+  type: EntryType;
+  category: string | null;
+}): string {
+  if (entry.kind === "CARD_PAYMENT") return CARD_PAYMENT_FILTER;
+  return getCategory(entry.category)?.id ?? (entry.type === "INCOME" ? "uncategorized_income" : "uncategorized_expense");
+}
+
+export interface FilterLegendItem {
+  key: string;
+  emoji: string;
+  label: string;
+}
+
+// Every icon the calendar can show, with its meaning.
+export function filterLegend(): FilterLegendItem[] {
+  return [
+    ...CATEGORIES.map((c) => ({ key: c.id, emoji: c.emoji, label: c.label })),
+    { key: CARD_PAYMENT_FILTER, emoji: "💳", label: "Card payment" },
+  ];
+}
+
 export function entryEmoji(entry: {
   kind: TransactionKind;
   category: string | null;

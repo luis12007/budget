@@ -10,7 +10,7 @@ import {
   startOfWeek,
 } from "date-fns";
 import { Flag, Repeat } from "lucide-react";
-import { entryEmoji } from "@/lib/categories";
+import { entryEmoji, entryFilterKey } from "@/lib/categories";
 import { toKey } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
 import { summarize } from "@/lib/projection";
@@ -27,6 +27,7 @@ export function MonthCalendar({
   occurrencesByDate,
   balanceByDate,
   onSelectDay,
+  hiddenKeys,
 }: {
   cursor: Date;
   today: string;
@@ -34,6 +35,7 @@ export function MonthCalendar({
   occurrencesByDate: Map<string, Occurrence[]>;
   balanceByDate: Map<string, number>;
   onSelectDay: (dateKey: string) => void;
+  hiddenKeys: Set<string>;
 }) {
   const days = eachDayOfInterval({
     start: startOfWeek(startOfMonth(cursor), { weekStartsOn: 1 }),
@@ -66,7 +68,8 @@ export function MonthCalendar({
           const entries = occurrencesByDate.get(key) ?? [];
           const net = summarize(entries).netCents;
           const balance = untracked ? undefined : balanceByDate.get(key);
-          const hidden = entries.length - MAX_CHIPS;
+          const visible = entries.filter((o) => !hiddenKeys.has(entryFilterKey(o)));
+          const hidden = visible.length - MAX_CHIPS;
 
           return (
             <button
@@ -110,7 +113,7 @@ export function MonthCalendar({
               </div>
 
               <div className="flex-1 space-y-0.5 overflow-hidden">
-                {entries.slice(0, MAX_CHIPS).map((o) => (
+                {visible.slice(0, MAX_CHIPS).map((o) => (
                   <div
                     key={o.key}
                     className={cx(

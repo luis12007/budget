@@ -1,3 +1,4 @@
+import { OPENING } from "./opening";
 import type { EntryType, Occurrence, Settings, Transaction, Vault } from "./types";
 
 export function signedAmount(entry: { type: EntryType; amountCents: number }): number {
@@ -26,16 +27,15 @@ function projectFrom(
   return storedCents - sum;
 }
 
-// Money total (liquid money) on `dateKey`. The stored balance is "as of end of balanceDate", so
-// entries on that date are already included. Only occurrences that affect the total count.
-export function balanceAt(settings: Settings, occurrences: Occurrence[], dateKey: string): number {
-  return projectFrom(
-    settings.balanceCents,
-    settings.balanceDate,
-    occurrences,
-    dateKey,
-    (o) => o.affectsTotal,
-  );
+// Money total on `dateKey`: the fixed opening amount plus every entry that affects the total from
+// the opening date through `dateKey`. Vault balances do not change this total.
+export function balanceAt(_settings: Settings, occurrences: Occurrence[], dateKey: string): number {
+  if (dateKey < OPENING.date) return 0;
+  let sum = 0;
+  for (const o of occurrences) {
+    if (o.affectsTotal && o.date >= OPENING.date && o.date <= dateKey) sum += signedAmount(o);
+  }
+  return sum;
 }
 
 // Balance of one vault on `dateKey`: its stored balance plus the entries assigned to it since.

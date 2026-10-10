@@ -1,7 +1,7 @@
 "use client";
 
 import { format } from "date-fns";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 import { addRecurringRule, deleteRecurringRule, setRecurringRuleActive } from "@/app/actions";
 import { categoriesFor, categoryEmoji, getCategory } from "@/lib/categories";
@@ -25,12 +25,14 @@ export function RecurringModal({
   cards,
   editMode,
   onClose,
+  onEditRule,
 }: {
   rules: RecurringRule[];
   vaults: Vault[];
   cards: CreditCard[];
   editMode: boolean;
   onClose: () => void;
+  onEditRule: (id: string) => void;
 }) {
   const [pending, startTransition] = useTransition();
   const handleResult = useHandleResult();
@@ -73,6 +75,15 @@ export function RecurringModal({
               <Amount cents={rule.amountCents} type={rule.type} className="font-medium" />
               {editMode && (
                 <>
+                  <Button
+                    variant="ghost"
+                    className="size-8 px-0"
+                    disabled={pending}
+                    title="Edit rule"
+                    onClick={() => onEditRule(rule.id)}
+                  >
+                    <Pencil className="size-4" />
+                  </Button>
                   <Switch
                     checked={rule.active}
                     label=""

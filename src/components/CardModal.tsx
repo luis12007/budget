@@ -1,9 +1,10 @@
 "use client";
 
 import { format } from "date-fns";
-import { Repeat, Trash2 } from "lucide-react";
+import { Pencil, Repeat, Trash2 } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
-import { addCardPayment, addTransaction, deleteTransaction } from "@/app/actions";
+import { addCardPayment, addTransaction, deleteTransaction, setCardCutoff } from "@/app/actions";
+import { nextCutoffDate } from "@/lib/accounts";
 import { categoriesFor, entryEmoji } from "@/lib/categories";
 import { fromKey } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
@@ -22,6 +23,7 @@ export function CardModal({
   editMode,
   today,
   onClose,
+  onEditTransaction,
 }: {
   card: CreditCard;
   owed: number;
@@ -31,6 +33,7 @@ export function CardModal({
   editMode: boolean;
   today: string;
   onClose: () => void;
+  onEditTransaction: (id: string) => void;
 }) {
   const [pending, startTransition] = useTransition();
   const handleResult = useHandleResult();
@@ -39,7 +42,10 @@ export function CardModal({
   const [payFrom, setPayFrom] = useState("");
 
   const available = card.limitCents - owed;
-  const usage = card.limitCents > 0 ? Math.min(1, Math.max(0, owed / card.limitCents)) : 0;
+  // Bar shows what is still available: full when nothing is owed, empties as the card is used.
+  const availablePct =
+    card.limitCents > 0 ? Math.min(1, Math.max(0, available / card.limitCents)) : 0;
+  const nextCut = card.cutoffDay ? nextCutoffDate(card.cutoffDay, today) : null;
   const expenseCategories = categoriesFor("EXPENSE");
 
   return (
@@ -82,16 +88,55 @@ export function CardModal({
         role="meter"
         aria-valuemin={0}
         aria-valuemax={card.limitCents}
-        aria-valuenow={owed}
-        aria-label="Credit used"
+        aria-valuenow={Math.max(0, available)}
+        aria-label="Available credit"
       >
         <div
           className={cx(
-            "h-full rounded-full",
-            usage >= 0.8 ? "bg-rose-500" : "bg-zinc-400 dark:bg-zinc-500",
+            "h-full rounded-full transition-[width]",
+            availablePct <= 0.2 ? "bg-rose-500" : "bg-emerald-500",
           )}
-          style={{ width: `${usage * 100}%` }}
+          style={{ width: `${availablePct * 100}%` }}
         />
+      </div>
+
+      <div className="mt-3 flex flex-wrap items-center justify-between gap-2 rounded-lg bg-zinc-50 px-3 py-2 text-sm dark:bg-zinc-800/60">
+        <span className="text-zinc-700 dark:text-zinc-300">
+          {nextCut ? (
+            <>
+              Cut-off day <span className="font-semibold">{card.cutoffDay}</span>, next cut-off{" "}
+              <span className="font-semibold">{format(fromKey(nextCut), "d MMM yyyy")}</span>
+            </>
+          ) : (
+            "No cut-off day set"
+          )}
+        </span>
+        {editMode && (
+          <form
+            key={card.cutoffDay ?? "none"}
+            className="flex items-center gap-2"
+            action={(formData) => {
+              startTransition(async () => handleResult(await setCardCutoff(formData)));
+            }}
+          >
+            <input type="hidden" name="cardId" value={card.id} />
+            <div className="w-20">
+              <Input
+                name="day"
+                type="number"
+                inputMode="numeric"
+                min={1}
+                max={31}
+                placeholder="Day"
+                defaultValue={card.cutoffDay ?? ""}
+                aria-label="Cut-off day of the month"
+              />
+            </div>
+            <Button type="submit" disabled={pending}>
+              Save cut-off
+            </Button>
+          </form>
+        )}
       </div>
 
       {editMode && (
@@ -277,6 +322,17 @@ export function CardModal({
                     {isPayment ? "−" : "+"}
                     {formatCents(t.amountCents)}
                   </span>
+                  {editMode && (
+                    <Button
+                      variant="ghost"
+                      className="size-8 px-0"
+                      disabled={pending}
+                      title="Edit"
+                      onClick={() => onEditTransaction(t.id)}
+                    >
+                      <Pencil className="size-4" />
+                    </Button>
+                  )}
                   {editMode && (
                     <Button
                       variant="danger"
