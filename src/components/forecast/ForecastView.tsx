@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 import { fromKey, toKey } from "@/lib/dates";
 import { buildForecast, type Granularity } from "@/lib/forecast";
 import { formatCents, formatSignedCents } from "@/lib/money";
-import type { RecurringRule, Settings, Transaction } from "@/lib/types";
+import type { RecurringRule, Settings, Transaction, Vault } from "@/lib/types";
 import { Card, cx } from "../ui";
 import { BalanceChart } from "./BalanceChart";
 import { FlowChart } from "./FlowChart";
@@ -22,11 +22,13 @@ const HORIZONS = [
 
 export function ForecastView({
   settings,
+  vaults,
   transactions,
   rules,
   today,
 }: {
   settings: Settings;
+  vaults: Vault[];
   transactions: Transaction[];
   rules: RecurringRule[];
   today: string;
@@ -38,8 +40,8 @@ export function ForecastView({
   const to = useMemo(() => toKey(addDays(addMonths(fromKey(today), months), -1)), [today, months]);
 
   const forecast = useMemo(
-    () => buildForecast(settings, transactions, rules, today, to, granularity),
-    [settings, transactions, rules, today, to, granularity],
+    () => buildForecast(settings, vaults, transactions, rules, today, to, granularity),
+    [settings, vaults, transactions, rules, today, to, granularity],
   );
 
   const horizonLabel = HORIZONS.find((h) => h.months === months)?.label ?? `${months} months`;

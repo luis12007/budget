@@ -1,20 +1,23 @@
 "use client";
 
 import { format } from "date-fns";
-import { Flag, Pencil, Repeat } from "lucide-react";
+import { ChevronRight, Flag, Pencil, Repeat } from "lucide-react";
 import { useTransition } from "react";
 import { setVaultCounts } from "@/app/actions";
-import { categoryEmoji } from "@/lib/categories";
+import { entryEmoji } from "@/lib/categories";
 import { fromKey } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
 import type { Summary } from "@/lib/projection";
-import type { Occurrence, Settings, Vault } from "@/lib/types";
+import type { CreditCard, Occurrence, Settings, Vault } from "@/lib/types";
 import { useHandleResult } from "./ActionFeedback";
 import { Amount, Button, Card, Switch, cx } from "./ui";
 
 export function SidePanel({
   settings,
   vaults,
+  vaultBalances,
+  cards,
+  cardOwed,
   today,
   todayBalance,
   periodLabel,
@@ -24,12 +27,16 @@ export function SidePanel({
   upcoming,
   editMode,
   onAdjustVault,
+  onOpenCard,
   onEditTrackingStart,
   onManageRecurring,
   onSelectDay,
 }: {
   settings: Settings;
   vaults: Vault[];
+  vaultBalances: Map<string, number>;
+  cards: CreditCard[];
+  cardOwed: Map<string, number>;
   today: string;
   todayBalance: number;
   periodLabel: string;
@@ -39,14 +46,17 @@ export function SidePanel({
   upcoming: Occurrence[];
   editMode: boolean;
   onAdjustVault: (vault: Vault) => void;
+  onOpenCard: (card: CreditCard) => void;
   onEditTrackingStart: () => void;
   onManageRecurring: () => void;
   onSelectDay: (dateKey: string) => void;
 }) {
   const [pending, startTransition] = useTransition();
   const handleResult = useHandleResult();
-  const notCounted = vaults.filter((v) => !v.countsInTotal).reduce((s, v) => s + v.balanceCents, 0);
+  const balanceOf = (v: Vault) => vaultBalances.get(v.id) ?? v.balanceCents;
+  const notCounted = vaults.filter((v) => !v.countsInTotal).reduce((s, v) => s + balanceOf(v), 0);
   const balanceIsFromToday = settings.balanceDate >= today;
+  const totalOwed = cards.reduce((s, c) => s + (cardOwed.get(c.id) ?? 0), 0);
 
   return (
     <aside className="flex flex-col gap-3">
@@ -83,7 +93,14 @@ export function SidePanel({
                   {v.countsInTotal ? "Counts in total" : "Not counted"}
                 </div>
               </div>
-              <span className="text-sm font-semibold tabular-nums">{formatCents(v.balanceCents)}</span>
+              <span
+                className={cx(
+                  "text-sm font-semibold tabular-nums",
+                  balanceOf(v) < 0 && "text-rose-600 dark:text-rose-400",
+                )}
+              >
+                {formatCents(balanceOf(v))}
+              </span>
               {editMode && (
                 <>
                   <Switch
@@ -129,6 +146,81 @@ export function SidePanel({
             </button>
           )}
         </div>
+      </Card>
+
+      <Card className="p-4">
+        <div className="mb-1 flex items-center justify-between">
+          <div className="text-xs font-medium text-zinc-500 uppercase dark:text-zinc-400">
+            Credit cards
+          </div>
+          <div
+            className={cx(
+              "text-xs tabular-nums",
+              totalOwed > 0
+                ? "font-medium text-rose-600 dark:text-rose-400"
+                : "text-zinc-500 dark:text-zinc-400",
+            )}
+          >
+            {totalOwed > 0 ? `Owed ${formatCents(totalOwed)}` : "All paid"}
+          </div>
+        </div>
+        <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+          {cards.map((card) => {
+            const owed = cardOwed.get(card.id) ?? 0;
+            const available = card.limitCents - owed;
+            const usage = card.limitCents > 0 ? Math.min(1, Math.max(0, owed / card.limitCents)) : 0;
+            return (
+              <li key={card.id}>
+                <button
+                  type="button"
+                  onClick={() => onOpenCard(card)}
+                  className="-mx-2 flex w-[calc(100%+1rem)] flex-col gap-1.5 rounded-lg px-2 py-2.5 text-left transition-colors hover:bg-zinc-50 dark:hover:bg-zinc-800/60"
+                  title={`${card.name}: charges, payments and history`}
+                >
+                  <div className="flex items-center gap-3">
+                    <span className="w-6 shrink-0 text-center text-lg leading-none" aria-hidden>
+                      {card.emoji}
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <div className="truncate text-sm font-medium">{card.name}</div>
+                      <div className="text-[11px] text-zinc-500 tabular-nums dark:text-zinc-400">
+                        {formatCents(available)} available of {formatCents(card.limitCents)}
+                      </div>
+                    </div>
+                    <span
+                      className={cx(
+                        "text-sm font-semibold tabular-nums",
+                        owed > 0 ? "text-rose-600 dark:text-rose-400" : "text-zinc-500 dark:text-zinc-400",
+                      )}
+                    >
+                      {owed > 0 ? formatCents(owed) : "Paid"}
+                    </span>
+                    <ChevronRight className="size-4 shrink-0 text-zinc-400" />
+                  </div>
+                  <div
+                    className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800"
+                    role="meter"
+                    aria-valuemin={0}
+                    aria-valuemax={card.limitCents}
+                    aria-valuenow={owed}
+                    aria-label={`${card.name} used`}
+                  >
+                    <div
+                      className={cx(
+                        "h-full rounded-full transition-[width]",
+                        usage >= 0.8 ? "bg-rose-500" : "bg-zinc-400 dark:bg-zinc-500",
+                      )}
+                      style={{ width: `${usage * 100}%` }}
+                    />
+                  </div>
+                </button>
+              </li>
+            );
+          })}
+        </ul>
+        <p className="mt-2 text-xs text-zinc-500 dark:text-zinc-400">
+          Charges don&apos;t reduce your money until you pay the card.
+        </p>
       </Card>
 
       <Card className="p-4">
@@ -197,7 +289,7 @@ export function SidePanel({
                   </span>
                   <span className="flex min-w-0 flex-1 items-center gap-1 truncate">
                     <span className="shrink-0" aria-hidden>
-                      {categoryEmoji(o.category, o.type)}
+                      {entryEmoji(o)}
                     </span>
                     {o.source === "recurring" && (
                       <Repeat className="size-3 shrink-0 text-zinc-400" />

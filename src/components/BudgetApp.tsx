@@ -17,10 +17,18 @@ import { X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import { lockEdit } from "@/app/actions";
 import { monthPrefix, todayKey, toKey } from "@/lib/dates";
-import { balanceAt, groupByDate, summarize } from "@/lib/projection";
+import { balanceAt, cardOwedAt, groupByDate, summarize, vaultBalancesAt } from "@/lib/projection";
 import { buildOccurrences } from "@/lib/recurring";
-import type { ActionResult, RecurringRule, Settings, Transaction, Vault } from "@/lib/types";
+import type {
+  ActionResult,
+  CreditCard,
+  RecurringRule,
+  Settings,
+  Transaction,
+  Vault,
+} from "@/lib/types";
 import { ActionResultProvider } from "./ActionFeedback";
+import { CardModal } from "./CardModal";
 import { DayModal } from "./DayModal";
 import { ForecastView } from "./forecast/ForecastView";
 import { Header, type ViewMode } from "./Header";
@@ -38,17 +46,20 @@ type ModalState =
   | { kind: "password" }
   | { kind: "tracking" }
   | { kind: "vault"; vaultId: string }
+  | { kind: "card"; cardId: string }
   | null;
 
 export function BudgetApp({
   settings,
   vaults,
+  cards,
   transactions,
   rules,
   canEdit,
 }: {
   settings: Settings;
   vaults: Vault[];
+  cards: CreditCard[];
   transactions: Transaction[];
   rules: RecurringRule[];
   canEdit: boolean;
@@ -114,8 +125,8 @@ export function BudgetApp({
   }, [view, cursor, settings.balanceDate, settings.trackingStart, today]);
 
   const occurrences = useMemo(
-    () => buildOccurrences(transactions, rules, range.from, range.to),
-    [transactions, rules, range.from, range.to],
+    () => buildOccurrences(transactions, rules, range.from, range.to, vaults),
+    [transactions, rules, range.from, range.to, vaults],
   );
 
   const occurrencesByDate = useMemo(() => groupByDate(occurrences), [occurrences]);
@@ -128,6 +139,16 @@ export function BudgetApp({
     }
     return map;
   }, [range.start, range.end, settings, occurrences]);
+
+  const vaultBalances = useMemo(
+    () => vaultBalancesAt(vaults, settings, occurrences, today),
+    [vaults, settings, occurrences, today],
+  );
+
+  const cardOwed = useMemo(
+    () => new Map(cards.map((c) => [c.id, cardOwedAt(c.id, transactions, today)])),
+    [cards, transactions, today],
+  );
 
   const period = useMemo(() => {
     const isYear = view === "year";
@@ -164,6 +185,16 @@ export function BudgetApp({
 
   const selectedEntries = selectedDay ? (occurrencesByDate.get(selectedDay) ?? []) : [];
   const activeVault = modal?.kind === "vault" ? vaults.find((v) => v.id === modal.vaultId) : undefined;
+  const activeCard = modal?.kind === "card" ? cards.find((c) => c.id === modal.cardId) : undefined;
+  const activeCardHistory = useMemo(
+    () =>
+      activeCard
+        ? transactions
+            .filter((t) => t.cardId === activeCard.id)
+            .sort((a, b) => b.date.localeCompare(a.date))
+        : [],
+    [activeCard, transactions],
+  );
 
   return (
     <ActionResultProvider value={handleResult}>
@@ -181,7 +212,13 @@ export function BudgetApp({
 
         {view === "forecast" ? (
           <main className="flex-1 p-4">
-            <ForecastView settings={settings} transactions={transactions} rules={rules} today={today} />
+            <ForecastView
+              settings={settings}
+              vaults={vaults}
+              transactions={transactions}
+              rules={rules}
+              today={today}
+            />
           </main>
         ) : (
           <main className="flex flex-1 flex-col gap-4 p-4 lg:flex-row">
@@ -213,6 +250,9 @@ export function BudgetApp({
               <SidePanel
                 settings={settings}
                 vaults={vaults}
+                vaultBalances={vaultBalances}
+                cards={cards}
+                cardOwed={cardOwed}
                 today={today}
                 todayBalance={todayBalance}
                 periodLabel={period.label}
@@ -222,6 +262,7 @@ export function BudgetApp({
                 upcoming={upcoming}
                 editMode={editMode}
                 onAdjustVault={(vault) => setModal({ kind: "vault", vaultId: vault.id })}
+                onOpenCard={(card) => setModal({ kind: "card", cardId: card.id })}
                 onEditTrackingStart={() => setModal({ kind: "tracking" })}
                 onManageRecurring={() => setModal({ kind: "recurring" })}
                 onSelectDay={setSelectedDay}
@@ -235,16 +276,42 @@ export function BudgetApp({
             dateKey={selectedDay}
             entries={selectedEntries}
             balance={balanceByDate.get(selectedDay) ?? balanceAt(settings, occurrences, selectedDay)}
+            vaults={vaults}
+            cards={cards}
             editMode={editMode}
             onClose={() => setSelectedDay(null)}
           />
         )}
-        {activeVault && <VaultModal vault={activeVault} onClose={() => setModal(null)} />}
+        {activeVault && (
+          <VaultModal
+            vault={activeVault}
+            currentBalance={vaultBalances.get(activeVault.id) ?? activeVault.balanceCents}
+            moneyToday={todayBalance}
+            onClose={() => setModal(null)}
+          />
+        )}
+        {activeCard && (
+          <CardModal
+            card={activeCard}
+            owed={cardOwed.get(activeCard.id) ?? 0}
+            history={activeCardHistory}
+            vaults={vaults}
+            editMode={editMode}
+            today={today}
+            onClose={() => setModal(null)}
+          />
+        )}
         {modal?.kind === "tracking" && (
           <TrackingStartModal trackingStart={settings.trackingStart} onClose={() => setModal(null)} />
         )}
         {modal?.kind === "recurring" && (
-          <RecurringModal rules={rules} editMode={editMode} onClose={() => setModal(null)} />
+          <RecurringModal
+            rules={rules}
+            vaults={vaults}
+            cards={cards}
+            editMode={editMode}
+            onClose={() => setModal(null)}
+          />
         )}
         {modal?.kind === "password" && (
           <PasswordModal onClose={() => setModal(null)} onUnlocked={handleUnlocked} />

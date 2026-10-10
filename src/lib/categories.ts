@@ -1,4 +1,4 @@
-import type { EntryType } from "./types";
+import type { EntryType, TransactionKind } from "./types";
 
 export interface Category {
   id: string;
@@ -9,7 +9,7 @@ export interface Category {
 
 export const CATEGORIES: Category[] = [
   { id: "regular_income", label: "Regular income", emoji: "💼", type: "INCOME" },
-  { id: "savings", label: "Savings", emoji: "🏦", type: "INCOME" },
+  { id: "savings", label: "Savings withdrawal", emoji: "🏦", type: "INCOME" },
   { id: "billing", label: "Billing system", emoji: "🧾", type: "INCOME" },
   { id: "external_jobs", label: "External jobs", emoji: "🛠️", type: "INCOME" },
   { id: "other_income", label: "Other income", emoji: "💰", type: "INCOME" },
@@ -34,4 +34,13 @@ export function getCategory(id: string | null | undefined): Category | undefined
 
 export function categoryEmoji(id: string | null | undefined, type: EntryType): string {
   return getCategory(id)?.emoji ?? (type === "INCOME" ? "💰" : "💸");
+}
+
+export function entryEmoji(entry: {
+  kind: TransactionKind;
+  category: string | null;
+  type: EntryType;
+}): string {
+  if (entry.kind === "CARD_PAYMENT") return "💳";
+  return categoryEmoji(entry.category, entry.type);
 }

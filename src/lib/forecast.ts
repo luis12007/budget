@@ -2,7 +2,7 @@ import { addDays, differenceInCalendarMonths, eachDayOfInterval, format } from "
 import { fromKey, toKey } from "./dates";
 import { balanceAt, groupByDate, signedAmount } from "./projection";
 import { buildOccurrences } from "./recurring";
-import type { RecurringRule, Settings, Transaction } from "./types";
+import type { RecurringRule, Settings, Transaction, Vault } from "./types";
 
 export type Granularity = "month" | "year";
 
@@ -39,6 +39,7 @@ function bucketLabel(key: string, granularity: Granularity): string {
 
 export function buildForecast(
   settings: Settings,
+  vaults: Vault[],
   transactions: Transaction[],
   rules: RecurringRule[],
   from: string,
@@ -47,7 +48,7 @@ export function buildForecast(
 ): Forecast {
   const lo = from < settings.balanceDate ? from : settings.balanceDate;
   const hi = to > settings.balanceDate ? to : settings.balanceDate;
-  const occurrences = buildOccurrences(transactions, rules, lo, hi);
+  const occurrences = buildOccurrences(transactions, rules, lo, hi, vaults);
   const byDate = groupByDate(occurrences);
 
   const startBalance = balanceAt(settings, occurrences, toKey(addDays(fromKey(from), -1)));
@@ -73,7 +74,8 @@ export function buildForecast(
     }
 
     for (const o of byDate.get(date) ?? []) {
-      balance += signedAmount(o);
+      if (o.affectsTotal) balance += signedAmount(o);
+      if (o.kind !== "ENTRY") continue;
       if (o.type === "INCOME") bucket.incomeCents += o.amountCents;
       else bucket.expenseCents += o.amountCents;
     }

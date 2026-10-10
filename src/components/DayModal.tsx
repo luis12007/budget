@@ -4,12 +4,13 @@ import { format } from "date-fns";
 import { Check, Repeat, Trash2 } from "lucide-react";
 import { useRef, useState, useTransition } from "react";
 import { addTransaction, confirmRecurring, deleteTransaction } from "@/app/actions";
-import { categoriesFor, categoryEmoji, getCategory } from "@/lib/categories";
+import { categoriesFor, entryEmoji, getCategory } from "@/lib/categories";
 import { fromKey } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
 import { summarize } from "@/lib/projection";
-import type { EntryType, Occurrence } from "@/lib/types";
+import type { CreditCard, EntryType, Occurrence, Vault } from "@/lib/types";
 import { useHandleResult } from "./ActionFeedback";
+import { AccountPicker, AccountTag } from "./AccountPicker";
 import { CategoryPicker } from "./CategoryPicker";
 import { Amount, Button, Input, Label, Modal, cx } from "./ui";
 
@@ -17,12 +18,16 @@ export function DayModal({
   dateKey,
   entries,
   balance,
+  vaults,
+  cards,
   editMode,
   onClose,
 }: {
   dateKey: string;
   entries: Occurrence[];
   balance: number;
+  vaults: Vault[];
+  cards: CreditCard[];
   editMode: boolean;
   onClose: () => void;
 }) {
@@ -31,11 +36,14 @@ export function DayModal({
   const formRef = useRef<HTMLFormElement>(null);
   const [type, setType] = useState<EntryType>("EXPENSE");
   const [category, setCategory] = useState(categoriesFor("EXPENSE")[0].id);
+  const [account, setAccount] = useState("");
   const summary = summarize(entries);
 
   const changeType = (next: EntryType) => {
     setType(next);
     setCategory(categoriesFor(next)[0].id);
+    // Income can't go to a credit card.
+    if (next === "INCOME" && account.startsWith("card:")) setAccount("");
   };
 
   return (
@@ -71,7 +79,7 @@ export function DayModal({
           {entries.map((o) => (
             <li key={o.key} className="flex items-center gap-3 py-2.5 text-sm">
               <span className="w-6 shrink-0 text-center text-base leading-none" aria-hidden>
-                {categoryEmoji(o.category, o.type)}
+                {entryEmoji(o)}
               </span>
               <span className="flex min-w-0 flex-1 flex-col">
                 <span className="flex items-center gap-1.5">
@@ -88,13 +96,18 @@ export function DayModal({
                     <Repeat className="size-3 shrink-0 text-zinc-400" />
                   )}
                 </span>
-                {getCategory(o.category) && (
-                  <span className="text-xs text-zinc-500 dark:text-zinc-400">
-                    {getCategory(o.category)!.label}
-                  </span>
-                )}
+                <span className="flex items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400">
+                  {o.kind === "CARD_PAYMENT"
+                    ? "Card payment"
+                    : (getCategory(o.category)?.label ?? null)}
+                  <AccountTag entry={o} vaults={vaults} cards={cards} />
+                </span>
               </span>
-              <Amount cents={o.amountCents} type={o.type} className="font-medium" />
+              <Amount
+                cents={o.amountCents}
+                type={o.type}
+                className={cx("font-medium", !o.affectsTotal && "opacity-70")}
+              />
               {editMode && o.source === "recurring" && o.recurringRuleId && (
                 <Button
                   variant="ghost"
@@ -138,7 +151,10 @@ export function DayModal({
             startTransition(async () => {
               const result = await addTransaction(formData);
               handleResult(result);
-              if (result.ok) formRef.current?.reset();
+              if (result.ok) {
+                formRef.current?.reset();
+                setAccount("");
+              }
             });
           }}
         >
@@ -168,8 +184,8 @@ export function DayModal({
 
           <CategoryPicker type={type} value={category} onChange={setCategory} />
 
-          <div className="grid grid-cols-[1fr_8rem] gap-2">
-            <div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-[1fr_11rem_8rem]">
+            <div className="col-span-2 sm:col-span-1">
               <Label htmlFor="description">Name (optional)</Label>
               <Input
                 id="description"
@@ -178,6 +194,14 @@ export function DayModal({
                 placeholder={getCategory(category)?.label}
               />
             </div>
+            <AccountPicker
+              id="account"
+              type={type}
+              value={account}
+              onChange={setAccount}
+              vaults={vaults}
+              cards={cards}
+            />
             <div>
               <Label htmlFor="amount">Amount</Label>
               <Input
@@ -191,6 +215,15 @@ export function DayModal({
               />
             </div>
           </div>
+          <p className="text-xs text-zinc-500 dark:text-zinc-400">
+            {account === ""
+              ? "Not assigned: counts in your money total but doesn't move any vault."
+              : account.startsWith("card:")
+                ? "Charged to the card: counts as spending, your money moves when you pay the card."
+                : type === "EXPENSE"
+                  ? "The money leaves this vault."
+                  : "The money is added to this vault."}
+          </p>
           <div className="flex justify-end">
             <Button type="submit" variant="primary" disabled={pending}>
               Add {type === "EXPENSE" ? "expense" : "income"}

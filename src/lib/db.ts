@@ -1,11 +1,18 @@
 import { todayKey } from "./dates";
 import { prisma } from "./prisma";
-import type { RecurringRule, Settings, Transaction, Vault } from "./types";
+import type { CreditCard, RecurringRule, Settings, Transaction, Vault } from "./types";
 
 const DEFAULT_VAULTS = [
   { id: "blocked", name: "Blocked account", emoji: "🔒", sortOrder: 0 },
   { id: "digital", name: "Digital", emoji: "💳", sortOrder: 1 },
   { id: "cash", name: "Cash", emoji: "💵", sortOrder: 2 },
+];
+
+// Credit cards with their limits. They start fully paid (nothing owed).
+const DEFAULT_CARDS = [
+  { id: "bac", name: "BAC", emoji: "🔴", limitCents: 357000, sortOrder: 0 },
+  { id: "cuscatlan", name: "Cuscatlán", emoji: "🔵", limitCents: 89200, sortOrder: 1 },
+  { id: "agricola", name: "Agrícola", emoji: "🟢", limitCents: 58000, sortOrder: 2 },
 ];
 
 export async function loadData() {
@@ -18,9 +25,13 @@ export async function loadData() {
   for (const vault of DEFAULT_VAULTS) {
     await prisma.vault.upsert({ where: { id: vault.id }, update: {}, create: vault });
   }
+  for (const card of DEFAULT_CARDS) {
+    await prisma.creditCard.upsert({ where: { id: card.id }, update: {}, create: card });
+  }
 
-  const [vaultRows, transactionRows, ruleRows] = await Promise.all([
+  const [vaultRows, cardRows, transactionRows, ruleRows] = await Promise.all([
     prisma.vault.findMany({ orderBy: { sortOrder: "asc" } }),
+    prisma.creditCard.findMany({ orderBy: { sortOrder: "asc" } }),
     prisma.transaction.findMany({ orderBy: { date: "asc" } }),
     prisma.recurringRule.findMany({ orderBy: { createdAt: "asc" } }),
   ]);
@@ -33,6 +44,13 @@ export async function loadData() {
     countsInTotal: v.countsInTotal,
   }));
 
+  const cards: CreditCard[] = cardRows.map((c) => ({
+    id: c.id,
+    name: c.name,
+    emoji: c.emoji,
+    limitCents: c.limitCents,
+  }));
+
   const settings: Settings = {
     balanceCents: vaults.filter((v) => v.countsInTotal).reduce((sum, v) => sum + v.balanceCents, 0),
     balanceDate: settingsRow.balanceDate,
@@ -43,9 +61,12 @@ export async function loadData() {
     id: t.id,
     date: t.date,
     type: t.type as Transaction["type"],
+    kind: t.kind as Transaction["kind"],
     amountCents: t.amountCents,
     description: t.description,
     category: t.category,
+    vaultId: t.vaultId,
+    cardId: t.cardId,
     recurringRuleId: t.recurringRuleId,
   }));
 
@@ -58,8 +79,10 @@ export async function loadData() {
     startDate: r.startDate,
     endDate: r.endDate,
     category: r.category,
+    vaultId: r.vaultId,
+    cardId: r.cardId,
     active: r.active,
   }));
 
-  return { settings, vaults, transactions, rules };
+  return { settings, vaults, cards, transactions, rules };
 }

@@ -6,23 +6,29 @@ import { useRef, useState, useTransition } from "react";
 import { addRecurringRule, deleteRecurringRule, setRecurringRuleActive } from "@/app/actions";
 import { categoriesFor, categoryEmoji, getCategory } from "@/lib/categories";
 import { fromKey, todayKey } from "@/lib/dates";
-import type { EntryType, RecurringRule } from "@/lib/types";
+import type { CreditCard, EntryType, RecurringRule, Vault } from "@/lib/types";
 import { useHandleResult } from "./ActionFeedback";
+import { AccountPicker, AccountTag } from "./AccountPicker";
 import { CategoryPicker } from "./CategoryPicker";
 import { Amount, Button, Input, Label, Modal, Select, Switch, cx } from "./ui";
 
 const FREQUENCY_LABEL: Record<RecurringRule["frequency"], string> = {
   WEEKLY: "Weekly",
+  BIWEEKLY: "Every 2 weeks",
   MONTHLY: "Monthly",
   YEARLY: "Yearly",
 };
 
 export function RecurringModal({
   rules,
+  vaults,
+  cards,
   editMode,
   onClose,
 }: {
   rules: RecurringRule[];
+  vaults: Vault[];
+  cards: CreditCard[];
   editMode: boolean;
   onClose: () => void;
 }) {
@@ -31,10 +37,12 @@ export function RecurringModal({
   const formRef = useRef<HTMLFormElement>(null);
   const [type, setType] = useState<EntryType>("EXPENSE");
   const [category, setCategory] = useState(categoriesFor("EXPENSE")[0].id);
+  const [account, setAccount] = useState("");
 
   const changeType = (next: EntryType) => {
     setType(next);
     setCategory(categoriesFor(next)[0].id);
+    if (next === "INCOME" && account.startsWith("card:")) setAccount("");
   };
 
   return (
@@ -54,7 +62,10 @@ export function RecurringModal({
                 {categoryEmoji(rule.category, rule.type)}
               </span>
               <div className="min-w-0 flex-1">
-                <div className="truncate font-medium">{rule.description}</div>
+                <div className="flex items-center gap-1.5">
+                  <span className="truncate font-medium">{rule.description}</span>
+                  <AccountTag entry={{ kind: "ENTRY", ...rule }} vaults={vaults} cards={cards} />
+                </div>
                 <div className="text-xs text-zinc-500 dark:text-zinc-400">
                   {describeSchedule(rule)}
                 </div>
@@ -101,7 +112,10 @@ export function RecurringModal({
             startTransition(async () => {
               const result = await addRecurringRule(formData);
               handleResult(result);
-              if (result.ok) formRef.current?.reset();
+              if (result.ok) {
+                formRef.current?.reset();
+                setAccount("");
+              }
             });
           }}
         >
@@ -146,11 +160,12 @@ export function RecurringModal({
 
           <CategoryPicker type={type} value={category} onChange={setCategory} />
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
             <div>
               <Label htmlFor="r-frequency">Repeats</Label>
               <Select id="r-frequency" name="frequency" defaultValue="MONTHLY">
                 <option value="WEEKLY">Weekly</option>
+                <option value="BIWEEKLY">Every 2 weeks</option>
                 <option value="MONTHLY">Monthly</option>
                 <option value="YEARLY">Yearly</option>
               </Select>
@@ -163,6 +178,14 @@ export function RecurringModal({
               <Label htmlFor="r-end">Ends (optional)</Label>
               <Input id="r-end" name="endDate" type="date" />
             </div>
+            <AccountPicker
+              id="r-account"
+              type={type}
+              value={account}
+              onChange={setAccount}
+              vaults={vaults}
+              cards={cards}
+            />
           </div>
           <div className="flex justify-end">
             <Button type="submit" variant="primary" disabled={pending}>
@@ -181,6 +204,9 @@ function describeSchedule(rule: RecurringRule): string {
   switch (rule.frequency) {
     case "WEEKLY":
       when = `every ${format(start, "EEEE")}`;
+      break;
+    case "BIWEEKLY":
+      when = `every other ${format(start, "EEEE")}`;
       break;
     case "MONTHLY":
       when = `on the ${format(start, "do")}`;

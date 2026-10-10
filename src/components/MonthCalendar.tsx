@@ -10,10 +10,10 @@ import {
   startOfWeek,
 } from "date-fns";
 import { Flag, Repeat } from "lucide-react";
-import { categoryEmoji } from "@/lib/categories";
+import { entryEmoji } from "@/lib/categories";
 import { toKey } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
-import { signedAmount } from "@/lib/projection";
+import { summarize } from "@/lib/projection";
 import type { Occurrence } from "@/lib/types";
 import { Amount, cx } from "./ui";
 
@@ -64,7 +64,7 @@ export function MonthCalendar({
           const untracked = key < trackingStart;
           const isStart = key === trackingStart;
           const entries = occurrencesByDate.get(key) ?? [];
-          const net = entries.reduce((sum, o) => sum + signedAmount(o), 0);
+          const net = summarize(entries).netCents;
           const balance = untracked ? undefined : balanceByDate.get(key);
           const hidden = entries.length - MAX_CHIPS;
 
@@ -122,7 +122,7 @@ export function MonthCalendar({
                     )}
                   >
                     <span className="shrink-0" aria-hidden>
-                      {categoryEmoji(o.category, o.type)}
+                      {entryEmoji(o)}
                     </span>
                     {o.source === "recurring" && <Repeat className="size-3 shrink-0" />}
                     <span className="truncate">{o.description}</span>

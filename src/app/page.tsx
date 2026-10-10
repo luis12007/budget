@@ -12,6 +12,7 @@ export default async function Page() {
       canEdit={canEdit}
       settings={data.settings}
       vaults={data.vaults}
+      cards={data.cards}
       transactions={data.transactions}
       rules={data.rules}
     />

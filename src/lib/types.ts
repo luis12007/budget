@@ -1,13 +1,22 @@
 export type EntryType = "EXPENSE" | "INCOME";
-export type Frequency = "WEEKLY" | "MONTHLY" | "YEARLY";
+export type Frequency = "WEEKLY" | "BIWEEKLY" | "MONTHLY" | "YEARLY";
+
+// ENTRY = a regular income or expense (a purchase charged to a credit card is still an ENTRY).
+// CARD_PAYMENT = money moved from a vault to a credit card to pay it down.
+export type TransactionKind = "ENTRY" | "CARD_PAYMENT";
 
 export interface Transaction {
   id: string;
   date: string;
   type: EntryType;
+  kind: TransactionKind;
   amountCents: number;
   description: string;
   category: string | null;
+  // Vault the money comes from (expense / card payment) or goes to (income). null = not assigned.
+  vaultId: string | null;
+  // Credit card impacted: a charge (ENTRY expense) or a payment (CARD_PAYMENT). null = none.
+  cardId: string | null;
   recurringRuleId: string | null;
 }
 
@@ -20,6 +29,8 @@ export interface RecurringRule {
   startDate: string;
   endDate: string | null;
   category: string | null;
+  vaultId: string | null;
+  cardId: string | null;
   active: boolean;
 }
 
@@ -27,8 +38,16 @@ export interface Vault {
   id: string;
   name: string;
   emoji: string;
+  // Real balance as of end of Settings.balanceDate. Later assigned entries are projected on top.
   balanceCents: number;
   countsInTotal: boolean;
+}
+
+export interface CreditCard {
+  id: string;
+  name: string;
+  emoji: string;
+  limitCents: number;
 }
 
 export interface Settings {
@@ -42,9 +61,15 @@ export interface Occurrence {
   key: string;
   date: string;
   type: EntryType;
+  kind: TransactionKind;
   amountCents: number;
   description: string;
   category: string | null;
+  vaultId: string | null;
+  cardId: string | null;
+  // Whether this occurrence moves the money total (liquid money). Card charges don't; a card
+  // payment does only when it comes out of a vault that counts in the total.
+  affectsTotal: boolean;
   source: "transaction" | "recurring";
   transactionId?: string;
   recurringRuleId?: string;

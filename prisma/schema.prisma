@@ -15,27 +15,48 @@ model Settings {
 }
 
 model Vault {
-  id            String   @id
-  name          String
-  emoji         String
-  balanceCents  Int      @default(0)
-  countsInTotal Boolean  @default(true)
-  sortOrder     Int
-  updatedAt     DateTime @updatedAt
+  id             String          @id
+  name           String
+  emoji          String
+  balanceCents   Int             @default(0)
+  countsInTotal  Boolean         @default(true)
+  sortOrder      Int
+  updatedAt      DateTime        @updatedAt
+  transactions   Transaction[]
+  recurringRules RecurringRule[]
+}
+
+model CreditCard {
+  id             String          @id
+  name           String
+  emoji          String
+  limitCents     Int
+  sortOrder      Int
+  updatedAt      DateTime        @updatedAt
+  transactions   Transaction[]
+  recurringRules RecurringRule[]
 }
 
 model Transaction {
   id              String         @id @default(cuid())
   date            String
   type            String
+  // ENTRY = regular income/expense. CARD_PAYMENT = money moved from a vault to a credit card.
+  kind            String         @default("ENTRY")
   amountCents     Int
   description     String
   category        String?
+  vaultId         String?
+  vault           Vault?         @relation(fields: [vaultId], references: [id], onDelete: SetNull)
+  cardId          String?
+  card            CreditCard?    @relation(fields: [cardId], references: [id], onDelete: SetNull)
   recurringRuleId String?
   recurringRule   RecurringRule? @relation(fields: [recurringRuleId], references: [id], onDelete: SetNull)
   createdAt       DateTime       @default(now())
 
   @@index([date])
+  @@index([vaultId])
+  @@index([cardId])
 }
 
 model RecurringRule {
@@ -47,6 +68,10 @@ model RecurringRule {
   startDate    String
   endDate      String?
   category     String?
+  vaultId      String?
+  vault        Vault?        @relation(fields: [vaultId], references: [id], onDelete: SetNull)
+  cardId       String?
+  card         CreditCard?   @relation(fields: [cardId], references: [id], onDelete: SetNull)
   active       Boolean       @default(true)
   createdAt    DateTime      @default(now())
   transactions Transaction[]
