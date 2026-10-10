@@ -40,7 +40,7 @@ export function Header({
     <header className="flex flex-wrap items-center gap-x-4 gap-y-3 border-b border-zinc-200 bg-white px-4 py-3 dark:border-zinc-800 dark:bg-zinc-900">
       <div className="flex items-center gap-2 font-semibold">
         <Wallet className="size-5" />
-        Budget
+        <span className="hidden sm:inline">Budget</span>
       </div>
 
       {view === "forecast" ? (
@@ -54,16 +54,16 @@ export function Header({
           <IconButton label={view === "month" ? "Next month" : "Next year"} onClick={onNext}>
             <ChevronRight className="size-4" />
           </IconButton>
-          <h1 className="ml-1 text-lg font-semibold tabular-nums">
+          <h1 className="ml-1 text-base font-semibold tabular-nums sm:text-lg">
             {format(cursor, view === "month" ? "MMMM yyyy" : "yyyy")}
           </h1>
         </div>
       )}
 
-      <div className="ml-auto flex items-center gap-4">
+      <div className="ml-auto flex flex-wrap items-center justify-end gap-2 sm:gap-4">
         {actions}
         {filterMenu}
-        <div role="tablist" className="inline-flex rounded-lg border border-zinc-300 p-0.5 dark:border-zinc-700">
+        <div role="tablist" className="inline-flex max-w-full overflow-x-auto rounded-lg border border-zinc-300 p-0.5 dark:border-zinc-700">
           {VIEWS.map((v) => (
             <button
               key={v.value}
@@ -72,7 +72,7 @@ export function Header({
               aria-selected={view === v.value}
               onClick={() => onViewChange(v.value)}
               className={cx(
-                "rounded-md px-3 py-1 text-sm font-medium transition-colors",
+                "rounded-md px-2.5 py-1 text-sm font-medium whitespace-nowrap transition-colors sm:px-3",
                 view === v.value
                   ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
                   : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-400 dark:hover:bg-zinc-800",

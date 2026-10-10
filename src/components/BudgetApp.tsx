@@ -388,7 +388,7 @@ export function BudgetApp({
         {error && (
           <div
             role="alert"
-            className="fixed bottom-4 left-1/2 z-[60] flex max-w-md -translate-x-1/2 items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 py-2 pr-1 pl-4 text-sm text-rose-800 shadow-lg dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200"
+            className="fixed bottom-4 left-1/2 z-[60] flex w-[calc(100vw-2rem)] max-w-md -translate-x-1/2 items-center gap-2 rounded-lg border border-rose-200 bg-rose-50 py-2 pr-1 pl-4 text-sm text-rose-800 shadow-lg dark:border-rose-900 dark:bg-rose-950 dark:text-rose-200"
           >
             <span>{error}</span>
             <IconButton label="Dismiss" onClick={() => setError(null)} className="size-8">

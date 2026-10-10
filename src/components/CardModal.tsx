@@ -362,7 +362,7 @@ function Stat({ label, children }: { label: string; children: React.ReactNode })
       <div className="text-[11px] font-medium text-zinc-500 uppercase dark:text-zinc-400">
         {label}
       </div>
-      <div className="mt-0.5 text-lg">{children}</div>
+      <div className="mt-0.5 text-sm font-semibold sm:text-lg">{children}</div>
     </div>
   );
 }

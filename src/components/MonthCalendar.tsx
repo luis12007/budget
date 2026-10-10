@@ -12,7 +12,7 @@ import {
 import { Flag, Repeat } from "lucide-react";
 import { entryEmoji, entryFilterKey } from "@/lib/categories";
 import { toKey } from "@/lib/dates";
-import { formatCents } from "@/lib/money";
+import { formatCents, formatCompactCents } from "@/lib/money";
 import { summarize } from "@/lib/projection";
 import type { Occurrence } from "@/lib/types";
 import { Amount, cx } from "./ui";
@@ -48,7 +48,7 @@ export function MonthCalendar({
         {WEEKDAYS.map((d) => (
           <div
             key={d}
-            className="px-2 py-2 text-center text-xs font-medium text-zinc-500 uppercase dark:text-zinc-400"
+            className="px-0 py-2 text-center text-[10px] font-medium text-zinc-500 uppercase sm:px-2 sm:text-xs dark:text-zinc-400"
           >
             {d}
           </div>
@@ -79,7 +79,7 @@ export function MonthCalendar({
               title={untracked ? "Before tracking start" : undefined}
               onClick={() => onSelectDay(key)}
               className={cx(
-                "relative flex min-h-24 flex-col gap-1 border-zinc-200 p-1.5 text-left transition-colors dark:border-zinc-800",
+                "relative flex min-h-16 flex-col gap-0.5 border-zinc-200 p-0.5 text-left transition-colors sm:min-h-24 sm:gap-1 sm:p-1.5 dark:border-zinc-800",
                 index % 7 !== 0 && "border-l",
                 index >= 7 && "border-t",
                 untracked
@@ -105,10 +105,14 @@ export function MonthCalendar({
                 </span>
                 {isStart ? (
                   <span className="inline-flex items-center gap-1 rounded bg-emerald-50 px-1.5 py-0.5 text-[10px] font-medium text-emerald-700 uppercase dark:bg-emerald-950/50 dark:text-emerald-300">
-                    <Flag className="size-3" /> Start
+                    <Flag className="size-3" /><span className="hidden sm:inline">Start</span>
                   </span>
                 ) : (
-                  net !== 0 && <Amount cents={net} type="NET" className="text-[11px]" />
+                  net !== 0 && (
+                    <span className="hidden sm:inline">
+                      <Amount cents={net} type="NET" className="text-[11px]" />
+                    </span>
+                  )
                 )}
               </div>
 
@@ -117,7 +121,7 @@ export function MonthCalendar({
                   <div
                     key={o.key}
                     className={cx(
-                      "flex items-center gap-1 truncate rounded px-1.5 py-0.5 text-[11px] leading-tight",
+                      "flex items-center gap-1 truncate rounded px-1 py-0.5 text-[10px] leading-tight sm:px-1.5 sm:text-[11px]",
                       o.type === "INCOME"
                         ? "bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300"
                         : "bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300",
@@ -128,8 +132,9 @@ export function MonthCalendar({
                       {entryEmoji(o)}
                     </span>
                     {o.source === "recurring" && <Repeat className="size-3 shrink-0" />}
-                    <span className="truncate">{o.description}</span>
-                    <span className="ml-auto shrink-0 tabular-nums">{formatCents(o.amountCents)}</span>
+                    <span className="hidden truncate sm:inline">{o.description}</span>
+                    <span className="ml-auto shrink-0 tabular-nums sm:hidden">{formatCompactCents(o.amountCents)}</span>
+                    <span className="ml-auto hidden shrink-0 tabular-nums sm:inline">{formatCents(o.amountCents)}</span>
                   </div>
                 ))}
                 {hidden > 0 && (
@@ -142,13 +147,14 @@ export function MonthCalendar({
               {balance !== undefined && (
                 <div
                   className={cx(
-                    "text-right text-[11px] tabular-nums",
+                    "truncate text-right text-[9px] tabular-nums sm:text-[11px]",
                     balance < 0
                       ? "font-medium text-rose-600 dark:text-rose-400"
                       : "text-zinc-500 dark:text-zinc-400",
                   )}
                 >
-                  {formatCents(balance)}
+                  <span className="sm:hidden">{formatCompactCents(balance)}</span>
+                  <span className="hidden sm:inline">{formatCents(balance)}</span>
                 </div>
               )}
             </button>

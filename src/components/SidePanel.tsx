@@ -65,7 +65,7 @@ export function SidePanel({
         </div>
         <div
           className={cx(
-            "mt-1 text-3xl font-semibold",
+            "mt-1 text-2xl font-semibold sm:text-3xl",
             todayBalance < 0 && "text-rose-600 dark:text-rose-400",
           )}
         >

@@ -188,7 +188,7 @@ function Segmented<T extends string | number>({
   return (
     <div className={cx("flex items-center gap-2", className)}>
       <span className="text-xs font-medium text-zinc-500 dark:text-zinc-400">{label}</span>
-      <div role="tablist" className="inline-flex rounded-lg border border-zinc-300 p-0.5 dark:border-zinc-700">
+      <div role="tablist" className="inline-flex max-w-full overflow-x-auto rounded-lg border border-zinc-300 p-0.5 dark:border-zinc-700">
         {options.map((o) => (
           <button
             key={String(o.value)}
@@ -240,7 +240,7 @@ function Stat({ label, value, negative }: { label: string; value: string; negati
   return (
     <Card className="p-4">
       <div className="text-xs font-medium text-zinc-500 uppercase dark:text-zinc-400">{label}</div>
-      <div className={cx("mt-1 text-2xl font-semibold", negative && "text-rose-600 dark:text-rose-400")}>
+      <div className={cx("mt-1 text-xl font-semibold sm:text-2xl", negative && "text-rose-600 dark:text-rose-400")}>
         {value}
       </div>
     </Card>

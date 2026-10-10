@@ -28,7 +28,7 @@ export function CategoryFilter({
       {open && (
         <>
           <div className="fixed inset-0 z-40" onMouseDown={() => setOpen(false)} aria-hidden />
-          <div className="absolute right-0 z-50 mt-2 w-72 rounded-xl border border-zinc-200 bg-white p-2 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+          <div className="fixed inset-x-4 top-20 z-50 rounded-xl border sm:absolute sm:inset-x-auto sm:top-auto sm:right-0 sm:mt-2 sm:w-72 border-zinc-200 bg-white p-2 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
             <div className="flex items-center justify-between px-2 pb-2 text-xs">
               <button type="button" onClick={() => onSetAll(false)} className="font-medium text-zinc-700 hover:underline dark:text-zinc-300">
                 Show all

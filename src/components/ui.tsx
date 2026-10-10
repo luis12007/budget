@@ -160,7 +160,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-zinc-900/40 p-4 backdrop-blur-sm dark:bg-black/60"
+      className="fixed inset-0 z-50 flex items-end justify-center bg-zinc-900/40 p-0 backdrop-blur-sm sm:items-center sm:p-4 dark:bg-black/60"
       onMouseDown={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
@@ -169,17 +169,17 @@ export function Modal({
         role="dialog"
         aria-modal="true"
         className={cx(
-          "max-h-[90vh] w-full overflow-y-auto rounded-2xl border border-zinc-200 bg-white shadow-xl dark:border-zinc-800 dark:bg-zinc-900",
-          wide ? "max-w-2xl" : "max-w-lg",
+          "max-h-[85dvh] w-full overflow-y-auto rounded-t-2xl border border-zinc-200 bg-white shadow-xl sm:max-h-[90vh] sm:rounded-2xl dark:border-zinc-800 dark:bg-zinc-900",
+          wide ? "sm:max-w-2xl" : "sm:max-w-lg",
         )}
       >
-        <div className="flex items-start justify-between gap-4 border-b border-zinc-200 px-5 py-4 dark:border-zinc-800">
-          <div className="text-base font-semibold">{title}</div>
+        <div className="flex items-start justify-between gap-3 border-b border-zinc-200 px-4 py-3 sm:gap-4 sm:px-5 sm:py-4 dark:border-zinc-800">
+          <div className="min-w-0 text-base font-semibold break-words">{title}</div>
           <IconButton label="Close" onClick={onClose} className="-mt-1 -mr-2">
             <X className="size-4" />
           </IconButton>
         </div>
-        <div className="px-5 py-4">{children}</div>
+        <div className="px-4 py-4 sm:px-5">{children}</div>
       </div>
     </div>
   );

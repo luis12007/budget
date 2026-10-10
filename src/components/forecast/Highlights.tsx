@@ -96,10 +96,10 @@ function HighlightCard({
   const linkWasRemoved = Boolean(highlight.transactionId || highlight.recurringRuleId) && !linked;
 
   return (
-    <Card className="flex flex-col gap-3 p-5">
+    <Card className="flex flex-col gap-3 p-4 sm:p-5">
       <div className="flex items-start justify-between gap-2">
         <div>
-          <div className="text-4xl font-semibold tracking-tight tabular-nums">{format(date, "d MMM")}</div>
+          <div className="text-3xl font-semibold tracking-tight tabular-nums sm:text-4xl">{format(date, "d MMM")}</div>
           <div className="text-xs text-zinc-500 uppercase dark:text-zinc-400">{format(date, "yyyy · EEEE")}</div>
         </div>
         {editMode && (
