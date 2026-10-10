@@ -1,15 +1,15 @@
 "use client";
 
 import { format } from "date-fns";
-import { Trash2 } from "lucide-react";
-import { useRef, useTransition } from "react";
+import { Plus, Trash2 } from "lucide-react";
+import { useRef, useState, useTransition } from "react";
 import { addHighlight, deleteHighlight } from "@/app/actions";
 import { categoryEmoji, entryEmoji } from "@/lib/categories";
 import { fromKey, todayKey } from "@/lib/dates";
 import { formatCents } from "@/lib/money";
 import type { Highlight, RecurringRule, Transaction } from "@/lib/types";
 import { useHandleResult } from "../ActionFeedback";
-import { Amount, Button, Card, Input, Label, Select } from "../ui";
+import { Amount, Button, Card, Input, Label, Modal, Select } from "../ui";
 
 export function Highlights({
   highlights,
@@ -24,12 +24,25 @@ export function Highlights({
 }) {
   const transactionById = new Map(transactions.map((t) => [t.id, t]));
   const ruleById = new Map(rules.map((r) => [r.id, r]));
+  const [adding, setAdding] = useState(false);
 
   return (
     <section className="space-y-3">
-      <h2 className="text-lg font-semibold">Highlights</h2>
+      <div className="flex items-center justify-between">
+        <h2 className="text-lg font-semibold">Highlights</h2>
+        {editMode && (
+          <Button className="h-8 px-2.5" onClick={() => setAdding(true)}>
+            <Plus className="size-4" />
+            Add
+          </Button>
+        )}
+      </div>
 
-      {editMode && <HighlightForm transactions={transactions} rules={rules} />}
+      {editMode && adding && (
+        <Modal title="Add highlight" onClose={() => setAdding(false)}>
+          <HighlightForm transactions={transactions} rules={rules} onDone={() => setAdding(false)} />
+        </Modal>
+      )}
 
       {highlights.length === 0 ? (
         <p className="py-6 text-center text-sm text-zinc-500 dark:text-zinc-400">No highlights yet.</p>
@@ -116,7 +129,15 @@ function HighlightCard({
   );
 }
 
-function HighlightForm({ transactions, rules }: { transactions: Transaction[]; rules: RecurringRule[] }) {
+function HighlightForm({
+  transactions,
+  rules,
+  onDone,
+}: {
+  transactions: Transaction[];
+  rules: RecurringRule[];
+  onDone: () => void;
+}) {
   const [pending, startTransition] = useTransition();
   const handleResult = useHandleResult();
   const formRef = useRef<HTMLFormElement>(null);
@@ -130,7 +151,10 @@ function HighlightForm({ transactions, rules }: { transactions: Transaction[]; r
         startTransition(async () => {
           const result = await addHighlight(formData);
           handleResult(result);
-          if (result.ok) formRef.current?.reset();
+          if (result.ok) {
+            formRef.current?.reset();
+            onDone();
+          }
         });
       }}
     >
